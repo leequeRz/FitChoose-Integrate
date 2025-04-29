@@ -1,0 +1,28 @@
+# ไม่รวมไฟล์โมเดล YOLO
+backend/weight.model/best.pt
+model_cache/
+*.pt
+
+# ไม่รวมรูปภาพที่ crop
+backend/cropped_images/
+cropped_images/
+
+# ไม่รวมไฟล์ cache ของ Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# ไม่รวมสภาพแวดล้อมเสมือน
+venv/
+env/
+ENV/
+
+# ไม่รวมไฟล์ IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ไม่รวมไฟล์ log
+*.log
