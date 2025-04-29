@@ -1,0 +1,9 @@
+# เพิ่มไลบรารีที่จำเป็น
+gdown>=4.6.0
+ultralytics>=8.0.0
+fastapi>=0.95.0
+uvicorn>=0.22.0
+python-multipart>=0.0.6
+opencv-python>=4.7.0
+numpy>=1.24.0
+pymongo>=4.3.0
