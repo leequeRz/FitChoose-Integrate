@@ -382,13 +382,12 @@ class GarmentService {
         }
       }
 
-      // ส่งรูปภาพโดยตรงแทนการส่ง URL
-      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/yolo'));
-      request.files
-          .add(await http.MultipartFile.fromPath('file', imageFile.path));
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      // ส่ง URL จาก Firebase แทนการส่งไฟล์โดยตรง
+      final response = await http.post(
+        Uri.parse('$baseUrl/yolo'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'image_url': url}),
+      );
 
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -413,8 +412,8 @@ class GarmentService {
     for (final detection in detections) {
       print('Processing detection: $detection');
       final className = detection['class'] as String;
-      final imageUrl = detection['cropped_image_url'] as String;
-      print('Class name: $className, Image URL: $imageUrl');
+      final tempImageUrl = detection['cropped_image_url'] as String;
+      print('Class name: $className, Image URL: $tempImageUrl');
 
       // กำหนดประเภทเสื้อผ้าตามชื่อคลาส
       String garmentType = 'unknown';
@@ -434,26 +433,51 @@ class GarmentService {
 
       if (garmentType != 'unknown') {
         print('Attempting to add garment of type: $garmentType');
-        final success = await addGarment(
-          garmentType: garmentType,
-          garmentImage: imageUrl,
-        );
 
-        print('Add garment result: $success');
-        if (success) {
-          // แปลงประเภทเสื้อผ้าเป็นภาษาไทยสำหรับการแสดงผล
-          String displayType = '';
-          if (garmentType == 'upper') {
-            displayType = 'เสื้อ';
-          } else if (garmentType == 'lower') {
-            displayType = 'กางเกง/กระโปรง';
-          } else if (garmentType == 'dress') {
-            displayType = 'ชุดเดรส';
+        // ดาวน์โหลดรูปภาพจาก URL ที่ได้รับจาก API
+        final tempDir = await Directory.systemTemp.createTemp();
+        final tempFile = File('${tempDir.path}/temp_image.jpg');
+
+        try {
+          // ดาวน์โหลดรูปภาพจาก URL
+          final response = await http.get(Uri.parse(tempImageUrl));
+          await tempFile.writeAsBytes(response.bodyBytes);
+
+          // อัปโหลดรูปภาพไปยัง Firebase Storage ในโฟลเดอร์ที่ถูกต้อง
+          final firebaseUrl = await uploadGarmentImage(tempFile, garmentType);
+
+          if (firebaseUrl != null) {
+            // บันทึกข้อมูลเสื้อผ้าด้วย URL จาก Firebase
+            final success = await addGarment(
+              garmentType: garmentType,
+              garmentImage: firebaseUrl,
+            );
+
+            print('Add garment result: $success');
+            if (success) {
+              // แปลงประเภทเสื้อผ้าเป็นภาษาไทยสำหรับการแสดงผล
+              String displayType = '';
+              if (garmentType == 'upper') {
+                displayType = 'เสื้อ';
+              } else if (garmentType == 'lower') {
+                displayType = 'กางเกง/กระโปรง';
+              } else if (garmentType == 'dress') {
+                displayType = 'ชุดเดรส';
+              } else {
+                displayType = garmentType;
+              }
+
+              savedTypes.add(displayType);
+            }
           } else {
-            displayType = garmentType;
+            print('Failed to upload image to Firebase');
           }
 
-          savedTypes.add(displayType);
+          // ลบไฟล์ชั่วคราว
+          await tempFile.delete();
+          await tempDir.delete(recursive: true);
+        } catch (e) {
+          print('Error processing image: $e');
         }
       } else {
         print('Unknown garment class: $className, skipping');

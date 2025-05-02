@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Body, Request, Response, File, UploadFile
+from fastapi import FastAPI, APIRouter, HTTPException, Body, Request, Response, File, UploadFile, Form
 from configuration import user_collection, garment_collection, matching_collection,favorite_collection
 from database.schemas import all_users, user_data
 from database.models import UserModel, UserUpdateModel, Garment, MatchingModel, FavoriteModel
@@ -19,6 +19,10 @@ from yolo_obj import process_yolo
 import os
 from fastapi.staticfiles import StaticFiles
 from uuid import uuid4
+#virtual try-on
+from fastapi.responses import FileResponse, JSONResponse
+import shutil
+import requests
  
 app = FastAPI()
 app.task_queue = asyncio.Queue()
@@ -34,6 +38,13 @@ SERVER_URL = "http://10.0.2.2:8000"  # สำหรับ Android Emulator
 
 # ให้ FastAPI เปิด folder cropped_images ให้เข้าถึงได้ทาง URL
 app.mount("/cropped_images", StaticFiles(directory="cropped_images"), name="cropped_images")
+
+# Virtual Try-On
+# External Try-On API Endpoint
+EXTERNAL_API_URL = "https://icq-households-appreciate-angeles.trycloudflare.com/tryon"
+# Folder to store result
+RESULT_DIR = "C:/Users/User/Downloads/FitChooseIntegrate/FitChooseIntegrate/backend/virtual_tryon_results"
+os.makedirs(RESULT_DIR, exist_ok=True)
 
 router = APIRouter()
 
@@ -104,52 +115,20 @@ async def task_worker():
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(task_worker())
-    
+
+# Object Detection API Endpoint
 # เขียน endpoint รับข้อมูลจาก client(รูป)
 # เขียน BaseModel รับข้อมูลจาก client
-# @app.get("/yolo")
-# async def yolorequest(a: A):
-#     task_id = str(uuid4())
-#     # ใส่ task ลงใน queue
-#     await app.task_queue.put(lambda: process_yolo(task_id, a.image_url, SERVER_URL))
-#     start = time.time()
-    
-#     # เพิ่ม logging เพื่อดูการทำงาน
-#     print(f"Task {task_id} added to queue")
-    
-#     while True:
-#         # เพิ่ม logging ทุก 5 วินาที
-#         if int(time.time() - start) % 5 == 0:
-#             print(f"Waiting for task {task_id}, elapsed time: {time.time() - start:.2f}s")
-#             print(f"Current results keys: {list(results.keys())}")
-            
-#         if time.time() - start > 30:  # เพิ่ม timeout เป็น 30 วินาที
-#             return {"message": "timeout", "task_id": task_id}
-            
-#         if task_id in results:
-#             result = results.pop(task_id)
-#             print(f"Task {task_id} completed with result: {result}")
-#             return {"message": "success", "detections": result}
-            
-#         # เพิ่ม sleep เพื่อลดการใช้ CPU
-#         await asyncio.sleep(0.2)
-
-#ปรับปรุง endpoint /yolo ให้รับ query parameter
 @app.post("/yolo")
-async def yolorequest(file: UploadFile = File(...)):
+async def yolorequest(a: A):
     task_id = str(uuid4())
     
-    # บันทึกไฟล์ชั่วคราว
-    temp_file_path = f"temp_{task_id}.jpg"
-    with open(temp_file_path, "wb") as buffer:
-        buffer.write(await file.read())
-    
-    # ใส่ task ลงใน queue
-    await app.task_queue.put(lambda: process_yolo(task_id, temp_file_path, SERVER_URL))
+    # ใส่ task ลงใน queue โดยส่ง image_url แทนไฟล์
+    await app.task_queue.put(lambda: process_yolo(task_id, a.image_url, SERVER_URL))
     start = time.time()
     
-    # เพิ่ม logging เพื่อดูการทำงาน
-    print(f"Task {task_id} added to queue with image file: {temp_file_path}")
+    # เพิ่ม logging เพื่อดูการทำงาน (แก้ไขให้ใช้ image_url แทน temp_file_path)
+    print(f"Task {task_id} added to queue with image URL: {a.image_url}")
     
     try:
         while True:
@@ -158,7 +137,7 @@ async def yolorequest(file: UploadFile = File(...)):
                 print(f"Waiting for task {task_id}, elapsed time: {time.time() - start:.2f}s")
                 print(f"Current results keys: {list(results.keys())}")
                 
-            if time.time() - start > 300:  # เพิ่ม timeout เป็น 300 วินาที
+            if time.time() - start > 30:  # เพิ่ม timeout เป็น 30 วินาที
                 return {"message": "timeout", "task_id": task_id}
                 
             if task_id in results:
@@ -169,26 +148,52 @@ async def yolorequest(file: UploadFile = File(...)):
             # เพิ่ม sleep เพื่อลดการใช้ CPU
             await asyncio.sleep(0.2)
     finally:
-        # ลบไฟล์ชั่วคราวเมื่อเสร็จสิ้น
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
-        
-@app.get("/virtual_try")
-async def virtual_tryrequest(b: B):
-    
-        
-        # ใส่ task ลงใน queue
-        await app.task_queue.put(lambda: virtual_try(b))
-        start = time.time()
-        while True:
-            # timeout when time over 20 seconds
-            if time.time() - start > 20:
-                return Response(content="timeout")
-            if b.task_id in results:
-                result = results.pop(b.task_id)
-                print(result)
-                return Response(content="success")
+        pass
 
+# Virtual Try-On API Endpoint
+@app.post("/tryon")
+async def tryon(
+    human_img: UploadFile = File(...),
+    garm_img: UploadFile = File(...),
+    category: str = Form(...)
+):
+    try:
+        # Save uploaded files temporarily
+        temp_human_path = os.path.join(RESULT_DIR, "temp_human.jpg")
+        temp_garm_path = os.path.join(RESULT_DIR, "temp_garment.jpg")
+
+        with open(temp_human_path, "wb") as f:
+            shutil.copyfileobj(human_img.file, f)
+
+        with open(temp_garm_path, "wb") as f:
+            shutil.copyfileobj(garm_img.file, f)
+
+        # Reopen for POSTing to external API
+        with open(temp_human_path, "rb") as human_file, open(temp_garm_path, "rb") as garment_file:
+            files = {
+                "human_img": ("human.jpg", human_file, "image/jpeg"),
+                "garm_img": ("garment.jpg", garment_file, "image/jpeg")
+            }
+            data = {"category": category}
+
+            response = requests.post(EXTERNAL_API_URL, files=files, data=data)
+
+        if response.status_code == 200:
+            # Save output with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            result_path = os.path.join(RESULT_DIR, f"result_tryon_{timestamp}.png")
+
+            with open(result_path, "wb") as out_file:
+                out_file.write(response.content)
+
+            return FileResponse(result_path, media_type="image/png", filename=os.path.basename(result_path))
+        else:
+            return JSONResponse(status_code=response.status_code, content={"error": response.text})
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# Mobile Application Endpoints all below
 @router.get("/")
 async def home():
     return {"message": "Welcome to FastAPI"}
@@ -263,7 +268,7 @@ async def check_user_exists(firebase_uid: str):
 
 @router.put("/users/update-by-firebase-uid/{firebase_uid}")
 async def update_user_by_firebase_uid(firebase_uid: str, updated_user: UserUpdateModel):
-    """อัปเดตข้อมูลผู้ใช้โดุง Firebase UID"""
+    """อัปเดตข้อมูลผู้ใช้โุง Firebase UID"""
     try:
         existing_user = user_collection.find_one({"user_id": firebase_uid, "is_deleted": False})
         if not existing_user:

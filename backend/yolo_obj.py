@@ -21,99 +21,21 @@ except Exception as e:
     traceback.print_exc()
 
 async def download_image(image_url: str):
-    """ดาวน์โหลดรูปภาพจาก URL"""
+    """ดาวน์โหลดรูปภาพจาก URL และแปลงเป็น OpenCV image"""
     try:
-        print(f"Downloading image from URL: {image_url}")
+        import aiohttp
+        import numpy as np
         
-        if image_url.startswith(('http://', 'https://')):
-            # ใช้ requests แทน aiohttp เพื่อความเข้ากันได้
-            import requests
-            try:
-                response = requests.get(image_url, timeout=30)
-                if response.status_code != 200:
-                    print(f"Failed to download image: HTTP {response.status_code}")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(image_url) as response:  # แก้ไขจาก url เป็น image_url
+                if response.status == 200:
+                    image_data = await response.read()
+                    nparr = np.frombuffer(image_data, np.uint8)
+                    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                    return img
+                else:
+                    print(f"Error downloading image: HTTP status {response.status}")
                     return None
-                    
-                # แปลงเป็น numpy array
-                import numpy as np
-                from PIL import Image
-                import io
-                try:
-                    img = Image.open(io.BytesIO(response.content))
-                    img_array = np.array(img)
-                    
-                    # ตรวจสอบว่ารูปภาพมีข้อมูลหรือไม่
-                    if img_array.size == 0:
-                        print("Downloaded image is empty")
-                        return None
-                    
-                    # แปลงเป็น BGR สำหรับ OpenCV
-                    if len(img_array.shape) == 3 and img_array.shape[2] == 3:
-                        img_array = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-                    elif len(img_array.shape) == 3 and img_array.shape[2] == 4:
-                        # กรณีมี alpha channel
-                        img_array = cv2.cvtColor(img_array, cv2.COLOR_RGBA2BGR)
-                    elif len(img_array.shape) == 2:
-                        # กรณีเป็นภาพขาวดำ
-                        img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
-                    
-                    print(f"Image downloaded successfully, shape: {img_array.shape}")
-                    return img_array
-                except Exception as e:
-                    print(f"Error processing image: {e}")
-                    return None
-            except requests.exceptions.RequestException as e:
-                print(f"Request error: {e}")
-                return None
-            
-        elif image_url.startswith('data:image'):
-            # กรณีเป็น base64
-            try:
-                import base64
-                header, encoded = image_url.split(",", 1)
-                img_data = base64.b64decode(encoded)
-                
-                import numpy as np
-                from PIL import Image
-                import io
-                img = Image.open(io.BytesIO(img_data))
-                img_array = np.array(img)
-                
-                # ตรวจสอบว่ารูปภาพมีข้อมูลหรือไม่
-                if img_array.size == 0:
-                    print("Base64 image is empty")
-                    return None
-                
-                # แปลงเป็น BGR สำหรับ OpenCV
-                if len(img_array.shape) == 3 and img_array.shape[2] == 3:
-                    img_array = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-                elif len(img_array.shape) == 3 and img_array.shape[2] == 4:
-                    # กรณีมี alpha channel
-                    img_array = cv2.cvtColor(img_array, cv2.COLOR_RGBA2BGR)
-                elif len(img_array.shape) == 2:
-                    # กรณีเป็นภาพขาวดำ
-                    img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
-                    
-                print(f"Base64 image decoded successfully, shape: {img_array.shape}")
-                return img_array
-            except Exception as e:
-                print(f"Error processing base64 image: {e}")
-                return None
-            
-        else:
-            # กรณีเป็นพาธไฟล์ในเครื่อง
-            try:
-                img_array = cv2.imread(image_url)
-                if img_array is None or img_array.size == 0:
-                    print(f"Failed to load image from path: {image_url}")
-                    return None
-                    
-                print(f"Local image loaded successfully, shape: {img_array.shape}")
-                return img_array
-            except Exception as e:
-                print(f"Error loading local image: {e}")
-                return None
-            
     except Exception as e:
         print(f"Error downloading image: {e}")
         import traceback
@@ -126,8 +48,13 @@ async def process_yolo(task_id: str, image_path: str, server_url: str):
         print(f"Starting process_yolo for task {task_id}")
         print(f"Image path: {image_path}")
         
-        # โหลดรูปภาพจากไฟล์โดยตรง
-        img = cv2.imread(image_path)
+       # ตรวจสอบว่า image_path เป็น URL หรือไม่
+        if image_path.startswith('http'):
+            # ดาวน์โหลดรูปภาพจาก URL
+            img = await download_image(image_path)
+        else:
+            # โหลดรูปภาพจากไฟล์โดยตรง
+            img = cv2.imread(image_path)
         
         # ตรวจสอบว่า img เป็น None หรือไม่
         if img is None:
