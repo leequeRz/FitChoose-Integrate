@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Body, Request, Response, File, UploadFile, Form
-from configuration import user_collection, garment_collection, matching_collection,favorite_collection
+from configuration import user_collection, garment_collection, matching_collection,favorite_collection, virtualtryon_collection
 from database.schemas import all_users, user_data
-from database.models import UserModel, UserUpdateModel, Garment, MatchingModel, FavoriteModel
+from database.models import UserModel, UserUpdateModel, Garment, MatchingModel, FavoriteModel, VirtualTryOnModel
 from bson.objectid import ObjectId
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,6 +23,8 @@ from uuid import uuid4
 from fastapi.responses import FileResponse, JSONResponse
 import shutil
 import requests
+import uuid
+import traceback
  
 app = FastAPI()
 app.task_queue = asyncio.Queue()
@@ -38,10 +40,11 @@ SERVER_URL = "http://10.0.2.2:8000"  # สำหรับ Android Emulator
 
 # ให้ FastAPI เปิด folder cropped_images ให้เข้าถึงได้ทาง URL
 app.mount("/cropped_images", StaticFiles(directory="cropped_images"), name="cropped_images")
+app.mount("/virtual_tryon_results", StaticFiles(directory="virtual_tryon_results"), name="virtual_tryon_results")
 
 # Virtual Try-On
 # External Try-On API Endpoint
-EXTERNAL_API_URL = "https://icq-households-appreciate-angeles.trycloudflare.com/tryon"
+EXTERNAL_API_URL = "https://creating-joseph-tribune-assumption.trycloudflare.com/tryon"
 # Folder to store result
 RESULT_DIR = "C:/Users/User/Downloads/FitChooseIntegrate/FitChooseIntegrate/backend/virtual_tryon_results"
 os.makedirs(RESULT_DIR, exist_ok=True)
@@ -158,6 +161,15 @@ async def tryon(
     category: str = Form(...)
 ):
     try:
+        # แปลงค่า category ให้ตรงกับที่ API ต้องการ
+        category_mapping = {
+            "Upper-Body": "upper_body",
+            "Lower-Body": "lower_body",
+            "Dress": "dresses"
+        }
+        
+        # ใช้ค่าที่แปลงแล้ว หรือใช้ค่าเดิมถ้าไม่มีในการแปลง
+        mapped_category = category_mapping.get(category, category)
         # Save uploaded files temporarily
         temp_human_path = os.path.join(RESULT_DIR, "temp_human.jpg")
         temp_garm_path = os.path.join(RESULT_DIR, "temp_garment.jpg")
@@ -174,7 +186,8 @@ async def tryon(
                 "human_img": ("human.jpg", human_file, "image/jpeg"),
                 "garm_img": ("garment.jpg", garment_file, "image/jpeg")
             }
-            data = {"category": category}
+            # ใช้ค่า category ที่แปลงแล้ว
+            data = {"category": mapped_category}
 
             response = requests.post(EXTERNAL_API_URL, files=files, data=data)
 
@@ -193,6 +206,33 @@ async def tryon(
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+# เพิ่ม endpoint สำหรับบันทึกผลลัพธ์ Virtual Try-On
+@app.post("/virtualtryon/save")
+async def save_virtual_tryon_result(data: dict):
+    try:
+        # แปลง ObjectId เป็น string ก่อนส่งกลับ
+        result = virtualtryon_collection.insert_one(data)
+        return {"id": str(result.inserted_id), "message": "Virtual try-on result saved successfully"}
+    except Exception as e:
+        print(f"Error saving virtual try-on result: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# เพิ่ม endpoint สำหรับดึงประวัตก Virtual Try-On ของผู้ใช้
+@app.get("/virtualtryon/user/{user_id}", response_model=List[VirtualTryOnModel])
+async def get_user_virtual_tryon(user_id: str):
+    try:
+        # ดึงข้อมูลจาก MongoDB
+        virtual_tryons = list(virtual_tryon_collection.find({"user_id": user_id}))
+        
+        # แปลง ObjectId เป็น str
+        for virtual_tryon in virtual_tryons:
+            virtual_tryon["_id"] = str(virtual_tryon["_id"])
+            
+        return virtual_tryons
+    except Exception as e:
+        print(f"Error getting virtual try-on history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Mobile Application Endpoints all below
 @router.get("/")
 async def home():
@@ -209,12 +249,22 @@ async def get_all_users():
 async def get_user(user_id: str):
     """ดึงข้อมูลผู้ใช้ตาม ID"""
     try:
-        id = ObjectId(user_id)
-        user = user_collection.find_one({"_id": id, "is_deleted": False})
+        # ตรวจสอบว่า user_id เป็น ObjectId หรือ Firebase UID
+        if len(user_id) == 24 and all(c in '0123456789abcdefABCDEF' for c in user_id):
+            # ถ้าเป็น ObjectId
+            user = user_collection.find_one({"_id": ObjectId(user_id), "is_deleted": False})
+        else:
+            # ถ้าเป็น Firebase UID
+            user = user_collection.find_one({"user_id": user_id, "is_deleted": False})
+        
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-        return user_data(user)
+        
+        # แปลง ObjectId เป็น string เพื่อให้ส่งกลับเป็น JSON ได้กับ
+        user["_id"] = str(user["_id"])
+        return user
     except Exception as e:
+        print(f"Error getting user: {e}")
         raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
 
 @router.post("/users/create")
@@ -277,6 +327,10 @@ async def update_user_by_firebase_uid(firebase_uid: str, updated_user: UserUpdat
         # กรองเฉพาะฟิลด์ที่มีค่า
         update_data = {k: v for k, v in dict(updated_user).items() if v is not None}
         # update_data["updated_at"] = datetime.timestamp(datetime.now())
+
+        # ลบฟิลด์ที่ไม่ควรบันทึกลงในฐานข้อมูล
+        if 'model_config' in update_data:
+            del update_data['model_config']
         
         user_collection.update_one({"user_id": firebase_uid}, {"$set": update_data})
         return {"status_code": 200, "message": "User updated successfully"}
@@ -372,7 +426,7 @@ async def delete_garment(garment_id: str):
 @router.post("/matchings/create")
 async def create_matching(matching_data: MatchingModel):
     try:
-        # รับข้อมูลจาก request - เปลี่ยนจาก .get() เป็นการเข้าถึงโดยตรง
+        # รับข้อมูลจาก request - เข้าถึงโดยตรง
         user_id = matching_data.user_id
         garment_top = matching_data.garment_top
         garment_bottom = matching_data.garment_bottom

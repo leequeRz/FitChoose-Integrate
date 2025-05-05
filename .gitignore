@@ -7,6 +7,10 @@ model_cache/
 backend/cropped_images/
 cropped_images/
 
+# ไม่รวมรูปภาพที่ virtual_tryon_results
+backend/virtual_tryon_results/
+virtual_tryon_results/
+
 # ไม่รวมไฟล์ cache ของ Python
 __pycache__/
 *.py[cod]

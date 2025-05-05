@@ -142,3 +142,26 @@ class FavoriteModel(BaseModel):
             }
         }
     )
+
+# เพิ่มโมเดลสำหรับ Virtual Try-On
+class VirtualTryOnModel(BaseModel):
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+    user_id: str
+    garment_id: str
+    garment_type: str  # "upper", "lower", "dress"
+    result_image: str  # URL ของรูปภาพผลลัพธ์
+    created_at: str = datetime.utcnow().isoformat()
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str},
+        json_schema_extra={
+            "example": {
+                "user_id": "user123",
+                "garment_id": "garment123",
+                "garment_type": "upper",
+                "result_image": "https://example.com/images/result.jpg",
+                "created_at": "2023-01-01T12:00:00"
+            }
+        }
+    )

@@ -1,8 +1,13 @@
+import 'package:fitchoose/components/pictureselect.dart';
+import 'package:fitchoose/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
-import 'package:image_picker/image_picker.dart';
 import 'package:fitchoose/services/garment_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
+import 'dart:typed_data';
 
 class VirtualTryOnPage extends StatefulWidget {
   const VirtualTryOnPage({super.key});
@@ -13,9 +18,17 @@ class VirtualTryOnPage extends StatefulWidget {
 
 class _VirtualTryOnPageState extends State<VirtualTryOnPage>
     with WidgetsBindingObserver {
+  String? imageUrl;
   String selectedCategory = 'Upper-Body';
   bool isLoading = true;
+  final apiService = ApiService();
   final GarmentService _garmentService = GarmentService();
+  String userName = 'Loading...';
+  String gender = 'Loading...';
+
+  // เพิ่มตัวแปรสำหรับเก็บผลลัพธ์ Virtual Try-On
+  File? _tryOnResultImage;
+  bool _isProcessing = false;
 
   // เปลี่ยนโครงสร้างข้อมูลเพื่อรองรับข้อมูลจาก API
   final Map<String, List<Map<String, dynamic>>> clothingItems = {
@@ -24,14 +37,13 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
     'Dress': [],
   };
 
-  File? _image;
-
   @override
   void initState() {
     super.initState();
     // เพิ่ม observer เพื่อตรวจจับเมื่อแอปกลับมาที่หน้านี้
     WidgetsBinding.instance.addObserver(this);
     _loadGarments();
+    _loadUserProfile();
   }
 
   @override
@@ -47,6 +59,42 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
     if (state == AppLifecycleState.resumed) {
       // รีโหลดข้อมูลเมื่อแอปกลับมาทำงาน
       _loadGarments();
+    }
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final userId = user.uid;
+        print('Fetching profile for user: $userId');
+
+        // เรียกใช้ API เพื่อดึงข้อมูลผู้ใช้
+        final response = await apiService.checkUserExists(userId);
+
+        if (response['exists'] == true && response.containsKey('user_data')) {
+          final userData = response['user_data'];
+          setState(() {
+            userName = userData['username'] ?? 'No Name';
+            gender = userData['gender'] ?? 'Not Specified';
+            imageUrl = userData['image_url'];
+            isLoading = false;
+          });
+          print('Profile loaded: $userName, $gender');
+        } else {
+          print('User profile not found');
+          setState(() {
+            userName = 'Profile Not Found';
+            isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading profile: $e');
+      setState(() {
+        userName = 'Error Loading Profile';
+        isLoading = false;
+      });
     }
   }
 
@@ -90,17 +138,279 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
     }
   }
 
-  Future<void> pickImage() async {
-    final pickedFile =
-        await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
-
-      // เพิ่มปุ่มหรือฟังก์ชันสำหรับอัปโหลดรูปภาพไปยัง Wardrobe ที่นี่
-      // หลังจากอัปโหลดเสร็จ ให้เรียก _loadGarments() เพื่อรีโหลดข้อมูล
+  // เพิ่มเมธอดสำหรับทำ Virtual Try-On
+  Future<void> _performVirtualTryOn(
+      Map<String, dynamic> selectedGarment) async {
+    if (imageUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาอัปโหลดรูปโปรไฟล์ก่อน')),
+      );
+      return;
     }
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      // ดาวน์โหลดรูปโปรไฟล์
+      final response = await http.get(Uri.parse(imageUrl!));
+      if (response.statusCode != 200) {
+        throw Exception('Failed to download profile image');
+      }
+
+      // สร้างไฟล์ชั่วคราวสำหรับรูปโปรไฟล์
+      final tempDir = await getTemporaryDirectory();
+      final humanImageFile = File('${tempDir.path}/profile.jpg');
+      await humanImageFile.writeAsBytes(response.bodyBytes);
+
+      // แปลงประเภทเสื้อผ้าให้ตรงกับที่ backend ต้องการ
+      String garmentType = selectedCategory.toLowerCase();
+      if (selectedCategory == 'Upper-Body') {
+        garmentType = 'upper';
+      } else if (selectedCategory == 'Lower-Body') {
+        garmentType = 'lower';
+      } else if (selectedCategory == 'Dress') {
+        garmentType = 'dress';
+      }
+
+      // ทำ Virtual Try-On
+      final resultPath = await _garmentService.performVirtualTryOn(
+        humanImage: humanImageFile,
+        garmentImageUrl: selectedGarment['garment_image'],
+        category: selectedCategory,
+      );
+
+      if (resultPath != null) {
+        // บันทึกผลลัพธ์
+        await _garmentService.saveVirtualTryOnResult(
+          garmentId: selectedGarment['_id'],
+          garmentType: garmentType,
+          resultImagePath: resultPath,
+        );
+
+        setState(() {
+          _tryOnResultImage = File(resultPath);
+          _isProcessing = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Virtual Try-On สำเร็จ!')),
+        );
+      } else {
+        throw Exception('Failed to perform virtual try-on');
+      }
+    } catch (e) {
+      print('Error in _performVirtualTryOn: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาด: ${e.toString()}')),
+      );
+      setState(() {
+        _isProcessing = false;
+      });
+    }
+  }
+
+  // เพิ่มฟังก์ชันแสดงผลลัพธ์
+  void _showTryOnResult() {
+    if (_tryOnResultImage == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'ผลลัพธ์ Virtual Try-On',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF3B1E54),
+                ),
+              ),
+            ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.file(
+                _tryOnResultImage!,
+                fit: BoxFit.cover,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: () async {
+                      // บันทึกรูปภาพลงในแกลเลอรี่ด้วย path_provider
+                      try {
+                        // อ่านไฟล์เป็น bytes
+                        final Uint8List imageBytes =
+                            await _tryOnResultImage!.readAsBytes();
+
+                        // สร้างชื่อไฟล์ด้วยเวลาปัจจุบันทึกรูปภาพ
+                        final String fileName =
+                            'virtual_tryon_${DateTime.now().millisecondsSinceEpoch}.png';
+
+                        // ดึง directory สำหรับบันทึกรูปภาพ
+                        final Directory pictureDir =
+                            await getApplicationDocumentsDirectory();
+                        final String filePath = '${pictureDir.path}/$fileName';
+
+                        // บันทึกไฟล์
+                        final File savedFile = File(filePath);
+                        await savedFile.writeAsBytes(imageBytes);
+
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('บันทึกรูปภาพสำเร็จที่: $filePath'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+
+                        // แสดงข้อความแนะนำเพิ่มเติม
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                'หมายเหตุ: รูปภาพถูกบันทึกในพื้นที่แอปพลิเคชัน ไม่ได้บันทึกในแกลเลอรี่'),
+                            backgroundColor: Colors.blue,
+                            duration: Duration(seconds: 5),
+                          ),
+                        );
+                      } catch (e) {
+                        print('Error saving image: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content:
+                                Text('เกิดข้อผิดพลาดในการบันทึกรูปภาพ: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF3B1E54),
+                    ),
+                    child: Text('บันทึก'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // แก้ไขฟังก์ชัน _buildClothingGrid
+  Widget _buildClothingGrid() {
+    final items = clothingItems[selectedCategory] ?? [];
+
+    if (items.isEmpty) {
+      return Center(
+        child: Text(
+          'ไม่พบเสื้อผ้าในหมวดหมู่นี้',
+          style: TextStyle(
+            fontSize: 16,
+            color: Color(0xFF9B7EBD),
+          ),
+        ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.75,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final imageUrl = item['garment_image'] ?? '';
+
+        return GestureDetector(
+          onTap: () {
+            // เรียกใช้ฟังก์ชัน Virtual Try-On เมื่อคลิกที่รูปภาพ
+            _performVirtualTryOn(item);
+          },
+          child: Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                          color: Color(0xFF9B7EBD),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 32,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: Container(
+                  padding: EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF3B1E54).withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    Icons.try_sms_star,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // เพิ่มฟังก์ชันเพื่อรีเฟรชข้อมูลเมื่อกดปุ่ม
@@ -113,169 +423,131 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
     return Scaffold(
       backgroundColor: const Color(0xFFF5F0FF), // Light purple background
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          // เพิ่ม SingleChildScrollView เพื่อให้สามารถเลื่อนได้เมื่อเนื้อหาเกินขนาดหน้าจอ
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Stack(
+          children: [
+            // เนื้อหาหลัก
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              // เพิ่ม SingleChildScrollView เพื่อให้สามารถเลื่อนได้เมื่อเนื้อหาเกินขนาดหน้าจอ
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'Virtual Try-on',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF3B1E54), // Deep purple
-                          ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'Virtual Try-on',
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF3B1E54), // Deep purple
+                              ),
+                            ),
+                            Text(
+                              'Customize your outfit effortlessly',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Color(0xFF9B7EBD), // Medium purple
+                              ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          'Customize your outfit effortlessly',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Color(0xFF9B7EBD), // Medium purple
-                          ),
+                        // เพิ่มปุ่มรีเฟรช
+                        IconButton(
+                          icon: const Icon(Icons.refresh,
+                              color: Color(0xFF9B7EBD)),
+                          onPressed: _refreshData,
                         ),
                       ],
                     ),
-                    // เพิ่มปุ่มรีเฟรช
-                    IconButton(
-                      icon: const Icon(Icons.refresh, color: Color(0xFF9B7EBD)),
-                      onPressed: _refreshData,
+                    const SizedBox(height: 24),
+                    Center(
+                      child: PictureSelect(
+                        imageUrl: imageUrl ?? 'assets/images/test.png',
+                        width: 230,
+                        height: 300,
+                      ),
+                    ),
+                    SizedBox(height: 24),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (String category in [
+                            'Upper-Body',
+                            'Lower-Body',
+                            'Dress'
+                          ])
+                            Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: CategoryButton(
+                                text: category,
+                                isSelected: selectedCategory == category,
+                                onTap: () {
+                                  setState(() {
+                                    selectedCategory = category;
+                                  });
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 24),
+                    // แก้ไขจาก ListView แนวนอนเป็น GridView
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          selectedCategory,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF3B1E54),
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        isLoading
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                    color: Color(0xFF9B7EBD)))
+                            : _buildClothingGrid(),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                GestureDetector(
-                  onTap: pickImage,
-                  child: Center(
-                    child: Container(
-                      width: 260,
-                      // ลดความสูงลงเล็กน้อย
-                      height: 300,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: _image == null
-                          ? Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.image_outlined,
-                                  size: 60,
-                                  color: Color(0xFF9B7EBD),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  'Upload Your Picture',
-                                  style: TextStyle(
-                                    color: Color(0xFF9B7EBD),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            )
-                          : ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: Image.file(
-                                _image!,
-                                width: 260,
-                                height: 300,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 24),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
+              ),
+            ),
+
+            // แสดงตัวบ่งชี้การประมวลผลเมื่อกำลังทำ Virtual Try-On
+            if (_isProcessing)
+              Container(
+                color: Colors.black.withOpacity(0.5),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      for (String category in [
-                        'Upper-Body',
-                        'Lower-Body',
-                        'Dress'
-                      ])
-                        Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: CategoryButton(
-                            text: category,
-                            isSelected: selectedCategory == category,
-                            onTap: () {
-                              setState(() {
-                                selectedCategory = category;
-                              });
-                            },
-                          ),
+                      CircularProgressIndicator(
+                        color: Colors.white,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'กำลังประมวลผล Virtual Try-On...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
                     ],
                   ),
                 ),
-                SizedBox(height: 24),
-                // เปล่าจาก Container ที่มี GridView เป็น Column ที่มี Text และ ListView แนวนอน
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      selectedCategory,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF3B1E54),
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Container(
-                      height: 180, // ปรับความสูงตามความเหมาะสม
-                      child: isLoading
-                          ? const Center(
-                              child: CircularProgressIndicator(
-                                  color: Color(0xFF9B7EBD)))
-                          : clothingItems[selectedCategory]!.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    'No ${selectedCategory} items found',
-                                    style: TextStyle(
-                                      color: Color(0xFF9B7EBD),
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount:
-                                      clothingItems[selectedCategory]?.length ??
-                                          0,
-                                  itemBuilder: (context, index) {
-                                    final garment =
-                                        clothingItems[selectedCategory]![index];
-                                    return Padding(
-                                      padding:
-                                          const EdgeInsets.only(right: 16.0),
-                                      child: ClothingItemCard(
-                                        imageUrl: garment['garment_image'],
-                                        width:
-                                            150, // กำหนดความกว้างของแต่ละรายการ
-                                        height:
-                                            180, // กำหนดความสูงของแต่ละรายการ
-                                      ),
-                                    );
-                                  },
-                                ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+              ),
+          ],
         ),
       ),
     );

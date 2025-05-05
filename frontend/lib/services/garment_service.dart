@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:fitchoose/services/api_service.dart';
+import 'package:path_provider/path_provider.dart';
 
 class GarmentService {
   final ApiService _apiService = ApiService();
@@ -25,8 +26,18 @@ class GarmentService {
       // กำหนด path ใน Firebase Storage
       final storageRef = _storage.ref().child('garment_images/$fileName');
 
-      // อัปโหลดไฟล์
-      final uploadTask = storageRef.putFile(imageFile);
+      // กำหนด metadata ให้ถูกต้อง
+      final String contentType =
+          path.extension(imageFile.path).toLowerCase() == '.png'
+              ? 'image/png'
+              : 'image/jpeg';
+
+      final metadata = SettableMetadata(
+        contentType: contentType,
+      );
+
+      // อัปโหลดไฟล์พร้อม metadata
+      final uploadTask = storageRef.putFile(imageFile, metadata);
 
       // รอจนกว่าการอัปโหลดจะเสร็จสิ้น
       final snapshot = await uploadTask;
@@ -42,7 +53,7 @@ class GarmentService {
     }
   }
 
-  // เพิ่มเสื้อผ้าใหม่ลงใน MongoDB
+  // เพิ่มสื้อผ้าใหม่ลงใน MongoDB
   Future<bool> addGarment({
     required String garmentType,
     required String garmentImage,
@@ -486,5 +497,179 @@ class GarmentService {
 
     print('Saved types: $savedTypes');
     return savedTypes;
+  }
+
+  // เพิ่มเมธอดสำหรับ Virtual Try-On
+  Future<String?> performVirtualTryOn({
+    required File humanImage,
+    required String garmentImageUrl,
+    required String category,
+  }) async {
+    try {
+      // ส่งคำขอไปยัง API
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${_apiService.baseUrl}/tryon'),
+      );
+
+      // เพิ่มไฟล์และข้อมูล
+      request.files.add(await http.MultipartFile.fromPath(
+        'human_img',
+        humanImage.path,
+      ));
+
+      // ดาวน์โหลดรูปภาพเสื้อผ้า
+      final garmentResponse = await http.get(Uri.parse(garmentImageUrl));
+      if (garmentResponse.statusCode != 200) {
+        throw Exception('ไม่สามารถดาวน์โหลดรูปภาพเสื้อผ้าได้');
+      }
+
+      // สร้างไฟล์ชั่วคราวสำหรับเสื้อผ้า
+      final tempDir = await Directory.systemTemp.createTemp();
+      final garmentFile = File('${tempDir.path}/garment.jpg');
+      await garmentFile.writeAsBytes(garmentResponse.bodyBytes);
+
+      request.files.add(await http.MultipartFile.fromPath(
+        'garm_img',
+        garmentFile.path,
+      ));
+
+      // แปลงประเภทเสื้อผ้าให้ตรงกับที่ backend ต้องการ
+      String apiCategory;
+      if (category == 'Upper-Body') {
+        apiCategory = 'upper_body';
+      } else if (category == 'Lower-Body') {
+        apiCategory = 'lower_body';
+      } else if (category == 'Dress') {
+        apiCategory = 'dresses';
+      } else {
+        apiCategory = category.toLowerCase();
+      }
+
+      request.fields['category'] = apiCategory;
+
+      // ส่งคำขอและรับการตอบกลับ
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      // ลบไฟล์ชั่วคราว
+      await garmentFile.delete();
+      await tempDir.delete(recursive: true);
+
+      if (response.statusCode == 200) {
+        // บันทึกผลลัพธ์เป็นไฟล์ชั่วคราว
+        final appDir = await getApplicationDocumentsDirectory();
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final resultFile = File('${appDir.path}/tryon_result_$timestamp.png');
+        await resultFile.writeAsBytes(response.bodyBytes);
+
+        return resultFile.path;
+      } else {
+        print(
+            'เกิดข้อผิดพลาดในการทำ Virtual Try-On: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('เกิดข้อผิดพลาดในการทำ Virtual Try-On: $e');
+      return null;
+    }
+  }
+
+  // เพิ่มเมธอดสำหรับบันทึกผลลัพธ์ Virtual Try-On
+  Future<bool> saveVirtualTryOnResult({
+    required String garmentId,
+    required String garmentType,
+    required String resultImagePath,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return false;
+
+      // อัปโหลดรูปภาพผลลัพธ์ไปยัง Firebase Storage
+      final file = File(resultImagePath);
+      final fileName =
+          'tryon_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.png';
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('virtual_tryon_results')
+          .child(fileName);
+
+      // เพิ่มการตั้งค่า metadata และสิทธิ์การเข้าถึง
+      final metadata = SettableMetadata(
+        contentType: 'image/png',
+        customMetadata: {
+          'userId': user.uid,
+          'garmentId': garmentId,
+          'timestamp': DateTime.now().toString(),
+        },
+      );
+
+      // อัปโหลดไฟล์พร้อม metadata
+      final uploadTask = storageRef.putFile(file, metadata);
+      final snapshot = await uploadTask.whenComplete(() => null);
+
+      // ตั้งค่าสิทธิ์การเข้าถึงเป็นสาธารณะ
+      await snapshot.ref.updateMetadata(SettableMetadata(
+        contentType: 'image/png',
+        customMetadata: {'public': 'true'},
+      ));
+
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      // บันทึกข้อมูลลงใน MongoDB
+      final response = await http.post(
+        Uri.parse('${_apiService.baseUrl}/virtualtryon/save'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': user.uid,
+          'garment_id': garmentId,
+          'garment_type': garmentType,
+          'result_image': downloadUrl,
+          'created_at': DateTime.now().toIso8601String(),
+        }),
+      );
+
+      print(
+          'Save virtual try-on response: ${response.statusCode} - ${response.body}');
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print('เกิดข้อผิดพลาดในการบันทึกผลลัพธ์ Virtual Try-On: $e');
+      return false;
+    }
+  }
+
+  // เพิ่มเมธอดสำหรับดึงประวัติ Virtual Try-On
+  Future<List<Map<String, dynamic>>> getVirtualTryOnHistory() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return [];
+
+      final userId = user.uid;
+      print('Getting virtual try-on history for user: $userId');
+
+      final response = await http.get(
+        Uri.parse('${_apiService.baseUrl}/virtualtryon/user/$userId'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        print('Received ${data.length} virtual try-on records');
+
+        // เพิ่ม debug log เพื่อตรวจสอบข้อมูลที่ได้รับ
+        for (var item in data) {
+          print(
+              'Virtual Try-On item: ${item['_id']}, Image URL: ${item['result_image']}');
+        }
+
+        return data.map((item) => item as Map<String, dynamic>).toList();
+      } else {
+        print(
+            'Error getting virtual try-on history: ${response.statusCode} - ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print('Error getting virtual try-on history: $e');
+      return [];
+    }
   }
 }
