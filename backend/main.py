@@ -25,6 +25,8 @@ import shutil
 import requests
 import uuid
 import traceback
+from bson import ObjectId
+import json
  
 app = FastAPI()
 app.task_queue = asyncio.Queue()
@@ -217,20 +219,59 @@ async def save_virtual_tryon_result(data: dict):
         print(f"Error saving virtual try-on result: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# เพิ่ม endpoint สำหรับดึงประวัตก Virtual Try-On ของผู้ใช้
-@app.get("/virtualtryon/user/{user_id}", response_model=List[VirtualTryOnModel])
-async def get_user_virtual_tryon(user_id: str):
+# เพิ่มฟังก์ชันนี้เพื่อแปลง ObjectId เป็น string
+class JSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, ObjectId):
+            return str(o)
+        return super().default(o)
+
+@app.get("/virtualtryon/user/{user_id}")
+async def get_virtual_tryon_history(user_id: str):
     try:
-        # ดึงข้อมูลจาก MongoDB
-        virtual_tryons = list(virtual_tryon_collection.find({"user_id": user_id}))
+        # ใช้ virtualtryon_collection แทน virtual_tryon_collection
+        results = list(virtualtryon_collection.find({"user_id": user_id}))
         
-        # แปลง ObjectId เป็น str
-        for virtual_tryon in virtual_tryons:
-            virtual_tryon["_id"] = str(virtual_tryon["_id"])
-            
-        return virtual_tryons
+        # แปลง ObjectId เป็น string ก่อนส่งกลับ
+        for result in results:
+            result["_id"] = str(result["_id"])
+            # แปลง ObjectId อื่นๆ ถ้ามี
+            if "garment_id" in result and isinstance(result["garment_id"], ObjectId):
+                result["garment_id"] = str(result["garment_id"])
+        
+        return results
     except Exception as e:
-        print(f"Error getting virtual try-on history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# เพิ่ม endpoint สำหรับลบประวัติ Virtual Try-On
+@app.delete("/virtualtryon/{virtualtryon_id}")
+async def delete_virtualtryon(virtualtryon_id: str):
+    try:
+        # แปลง string ID เป็น ObjectId
+        object_id = ObjectId(virtualtryon_id)
+        
+        # ค้นหาข้อมูลก่อนลบเพื่อเก็บ URL รูปภาพ
+        virtualtryon_data = virtualtryon_collection.find_one({"_id": object_id})
+        
+        if not virtualtryon_data:
+            raise HTTPException(status_code=404, detail="Virtual try-on record not found")
+        
+        # ลบข้อมูลจาก MongoDB
+        result = virtualtryon_collection.delete_one({"_id": object_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Virtual try-on record not found")
+        
+        # ลบรูปภาพจาก Firebase Storage (ถ้ามี URL)
+        if "result_image" in virtualtryon_data and virtualtryon_data["result_image"]:
+            # ส่งคำขอลบรูปภาพไปยัง Firebase (ต้องมีการจัดการเพิ่มเติม)
+            # ในที่นี้เราจะไม่ลบรูปภาพจาก Firebase เนื่องจากต้องใช้ Firebase Admin SDK
+            pass
+        
+        return {"message": "Virtual try-on record deleted successfully"}
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # Mobile Application Endpoints all below

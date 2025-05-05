@@ -638,38 +638,47 @@ class GarmentService {
     }
   }
 
-  // เพิ่มเมธอดสำหรับดึงประวัติ Virtual Try-On
+  // ตรวจสอบฟังก์ชันนี้ว่ามีการดึงข้อมูลถูกต้องหรือไม่
   Future<List<Map<String, dynamic>>> getVirtualTryOnHistory() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return [];
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) {
+        print('No user logged in');
+        return [];
+      }
 
-      final userId = user.uid;
+      // เพิ่ม print เพื่อตรวจสอบ userId
       print('Getting virtual try-on history for user: $userId');
 
+      // ตรวจสอบว่าเรียก API ถูกต้องหรือไม่
       final response = await http.get(
         Uri.parse('${_apiService.baseUrl}/virtualtryon/user/$userId'),
       );
 
+      print('Virtual try-on API response: ${response.statusCode}');
+      print('Virtual try-on API body: ${response.body}');
+
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        print('Received ${data.length} virtual try-on records');
-
-        // เพิ่ม debug log เพื่อตรวจสอบข้อมูลที่ได้รับ
-        for (var item in data) {
-          print(
-              'Virtual Try-On item: ${item['_id']}, Image URL: ${item['result_image']}');
-        }
-
         return data.map((item) => item as Map<String, dynamic>).toList();
       } else {
         print(
-            'Error getting virtual try-on history: ${response.statusCode} - ${response.body}');
+            'Failed to get virtual try-on history: ${response.statusCode} - ${response.body}');
         return [];
       }
     } catch (e) {
       print('Error getting virtual try-on history: $e');
       return [];
+    }
+  }
+
+  // เพิ่มเมธอดสำหรับลบประวัติ Virtual Try-On
+  Future<bool> deleteVirtualTryOn(String virtualTryOnId) async {
+    try {
+      return await _apiService.deleteVirtualTryOn(virtualTryOnId);
+    } catch (e) {
+      print('Error deleting Virtual Try-On: $e');
+      return false;
     }
   }
 }

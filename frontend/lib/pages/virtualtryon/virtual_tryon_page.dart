@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
 import 'dart:typed_data';
+import 'package:fitchoose/pages/virtualtryon/history_virtual_try_on_page.dart';
 
 class VirtualTryOnPage extends StatefulWidget {
   const VirtualTryOnPage({super.key});
@@ -326,28 +327,23 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
       );
     }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.75,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        final imageUrl = item['garment_image'] ?? '';
+    // เปลี่ยนจาก GridView เป็น ListView แนวนอน
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: items.map((item) {
+          final imageUrl = item['garment_image'] ?? '';
 
-        return GestureDetector(
-          onTap: () {
-            // เรียกใช้ฟังก์ชัน Virtual Try-On เมื่อคลิกที่รูปภาพ
-            _performVirtualTryOn(item);
-          },
-          child: Stack(
-            children: [
-              Container(
+          return Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: GestureDetector(
+              onTap: () {
+                // เรียกใช้ฟังก์ชัน Virtual Try-On เมื่อคลิกที่รูปภาพ
+                _performVirtualTryOn(item);
+              },
+              child: Container(
+                width: 180,
+                height: 200,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   color: Colors.white,
@@ -363,7 +359,7 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
                   borderRadius: BorderRadius.circular(12),
                   child: Image.network(
                     imageUrl,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.fill,
                     width: double.infinity,
                     height: double.infinity,
                     loadingBuilder: (context, child, loadingProgress) {
@@ -390,26 +386,10 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
                   ),
                 ),
               ),
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: Container(
-                  padding: EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Color(0xFF3B1E54).withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Icon(
-                    Icons.try_sms_star,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -436,31 +416,70 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
-                              'Virtual Try-on',
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF3B1E54), // Deep purple
+                        // ส่วนหัวข้อด้านซ้าย
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              Text(
+                                'Virtual Try-on',
+                                style: TextStyle(
+                                  fontSize: 32, // ลดขนาดจาก 32
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF3B1E54), // Deep purple
+                                ),
+                              ),
+                              Text(
+                                'Customize your outfit effortlessly',
+                                style: TextStyle(
+                                  fontSize: 16, // ลดขนาดจาก 18
+                                  color: Color(0xFF9B7EBD), // Medium purple
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // ปุ่มด้านขวา - ใช้รูปแบบเดียวกับหน้า Matching
+                        Row(
+                          children: [
+                            // ปุ่มประวัติ
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor:
+                                  Color(0xFF9B7EBD).withOpacity(0.2),
+                              child: IconButton(
+                                icon: Icon(
+                                  Icons.history_rounded,
+                                  color: Color(0xFF9B7EBD),
+                                  size: 24,
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const HistoryVirtualTryOnPage(),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
-                            Text(
-                              'Customize your outfit effortlessly',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Color(0xFF9B7EBD), // Medium purple
+                            SizedBox(width: 8),
+                            // ปุ่มรีเฟรช
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor:
+                                  Color(0xFF9B7EBD).withOpacity(0.2),
+                              child: IconButton(
+                                icon: Icon(
+                                  Icons.refresh_rounded,
+                                  color: Color(0xFF9B7EBD),
+                                  size: 24,
+                                ),
+                                onPressed: _refreshData,
                               ),
                             ),
                           ],
-                        ),
-                        // เพิ่มปุ่มรีเฟรช
-                        IconButton(
-                          icon: const Icon(Icons.refresh,
-                              color: Color(0xFF9B7EBD)),
-                          onPressed: _refreshData,
                         ),
                       ],
                     ),
@@ -498,7 +517,6 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
                       ),
                     ),
                     SizedBox(height: 24),
-                    // แก้ไขจาก ListView แนวนอนเป็น GridView
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -510,7 +528,7 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
                             color: Color(0xFF3B1E54),
                           ),
                         ),
-                        SizedBox(height: 12),
+                        SizedBox(height: 25),
                         isLoading
                             ? const Center(
                                 child: CircularProgressIndicator(
@@ -518,6 +536,7 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
                             : _buildClothingGrid(),
                       ],
                     ),
+                    SizedBox(height: 25)
                   ],
                 ),
               ),
@@ -626,8 +645,8 @@ class ClothingItemCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(
-                width: double.infinity,
-                height: double.infinity,
+                width: 180,
+                height: 240,
                 child: Image.network(
                   imageUrl,
                   fit: BoxFit.cover,

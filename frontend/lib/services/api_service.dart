@@ -535,4 +535,27 @@ class ApiService {
       return [];
     }
   }
+
+  // เพิ่มเมธอดสำหรับลบประวัติ Virtual Try-On
+  Future<bool> deleteVirtualTryOn(String virtualTryOnId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/virtualtryon/$virtualTryOnId'),
+      );
+
+      print(
+          'Delete Virtual Try-On response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        print(
+            'Failed to delete Virtual Try-On: ${response.statusCode} - ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('Error deleting Virtual Try-On: $e');
+      return false;
+    }
+  }
 }
