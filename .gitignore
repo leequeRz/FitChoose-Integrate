@@ -7,6 +7,11 @@ model_cache/
 backend/cropped_images/
 cropped_images/
 
+# ไม่รวมไฟล์โมเดล Classify
+backend/CLIP_api/best_Upper_f1.Pth
+*.pth
+backend/CLIP_api
+
 # ไม่รวมรูปภาพที่ virtual_tryon_results
 backend/virtual_tryon_results/
 virtual_tryon_results/

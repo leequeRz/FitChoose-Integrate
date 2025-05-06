@@ -27,6 +27,9 @@ import uuid
 import traceback
 from bson import ObjectId
 import json
+#classify
+from clip_classifier import load_clip_upper_model, process_clip_upper_classification, load_clip_lower_model, process_clip_lower_classification
+
  
 app = FastAPI()
 app.task_queue = asyncio.Queue()
@@ -226,6 +229,7 @@ class JSONEncoder(json.JSONEncoder):
             return str(o)
         return super().default(o)
 
+# ฟังก์ชันสำหรับดึงประวัติ Virtual Try-On ของผู้ใช้
 @app.get("/virtualtryon/user/{user_id}")
 async def get_virtual_tryon_history(user_id: str):
     try:
@@ -273,6 +277,69 @@ async def delete_virtualtryon(virtualtryon_id: str):
         raise HTTPException(status_code=400, detail="Invalid ID format")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Claasify model
+@app.post("/classify_upper")
+async def classify_image(file: UploadFile = File(...)):
+    """Endpoint for CLIP image classification"""
+    task_id = str(uuid4())
+    await app.task_queue.put(
+        lambda: process_clip_upper_classification(
+            task_id, 
+            file, 
+            app.state.clip_upper_model, 
+            app.state.clip_upper_processor
+        )
+    )
+    start = time.time()
+    
+    print(f"Classification task {task_id} added to queue")
+    
+    while True:
+        if int(time.time() - start) % 5 == 0:
+            print(f"Waiting for task {task_id}, elapsed time: {time.time() - start:.2f}s")
+            
+        if time.time() - start > 30:
+            return {"message": "timeout", "task_id": task_id}
+            
+        if task_id in results:
+            result = results.pop(task_id)
+            if "error" in result:
+                return {"message": "error", "error": result["error"]}
+            return {"message": "success", "classification": result}
+            
+        await asyncio.sleep(0.2)
+
+@app.post("/classify_lower")
+async def classify_image(file: UploadFile = File(...)):
+    """Endpoint for CLIP image classification"""
+    task_id = str(uuid4())
+    await app.task_queue.put(
+        lambda: process_clip_lower_classification(
+            task_id, 
+            file, 
+            app.state.clip_lower_model, 
+            app.state.clip_lower_processor
+        )
+    )
+    start = time.time()
+    
+    print(f"Classification task {task_id} added to queue")
+    
+    while True:
+        if int(time.time() - start) % 5 == 0:
+            print(f"Waiting for task {task_id}, elapsed time: {time.time() - start:.2f}s")
+            
+        if time.time() - start > 30:
+            return {"message": "timeout", "task_id": task_id}
+            
+        if task_id in results:
+            result = results.pop(task_id)
+            if "error" in result:
+                return {"message": "error", "error": result["error"]}
+            return {"message": "success", "classification": result}
+            
+        await asyncio.sleep(0.2)
 
 # Mobile Application Endpoints all below
 @router.get("/")
