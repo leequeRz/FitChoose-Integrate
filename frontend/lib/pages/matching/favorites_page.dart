@@ -124,7 +124,9 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                 matchingResult: matching['matching_result'],
                               ),
                             ),
-                          );
+                          ).then((_) {
+                            _loadFavorites();
+                          });
                         } catch (e) {
                           // ปิด loading indicator ในกรณีเกิดข้อผิดพลาด
                           Navigator.pop(context);
@@ -197,9 +199,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                       final success = await _garmentService
                                           .removeFromFavorites(matching['_id']);
                                       if (success) {
-                                        setState(() {
-                                          favorites.removeAt(index);
-                                        });
+                                        _loadFavorites();
                                         ScaffoldMessenger.of(context)
                                             .showSnackBar(
                                           const SnackBar(
