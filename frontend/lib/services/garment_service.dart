@@ -267,14 +267,13 @@ class GarmentService {
   }
 
   // เพิ่มฟังก์ชันสำหรับอัปเดต matching detail
-  Future<bool> updateMatchingDetail(
+  Future<void> updateMatchingDetail(
       String matchingId, String matchingDetail) async {
     try {
       await _apiService.updateMatchingDetail(matchingId, matchingDetail);
-      return true;
     } catch (e) {
       print('Error updating matching detail: $e');
-      return false;
+      throw Exception('Failed to update matching detail: $e');
     }
   }
 
@@ -679,6 +678,72 @@ class GarmentService {
     } catch (e) {
       print('Error deleting Virtual Try-On: $e');
       return false;
+    }
+  }
+
+  // เพิ่มฟังก์ชันสำหรับวิเคราะห์หมวดหมู่เสื้อผ้า
+  Future<String> classifyGarment(String garmentId, String garmentType) async {
+    try {
+      final result = await _apiService.classifyGarment(garmentId, garmentType);
+      return result['category'] ?? 'Unknown';
+    } catch (e) {
+      print('Error classifying garment: $e');
+      return 'Unknown';
+    }
+  }
+
+  // เพิ่มฟังก์ชันสำหรับดึงเสื้อผ้าที่แนะนำตามหมวดหมู่
+  Future<List<Map<String, dynamic>>> getSuggestedGarments(
+      String category, String garmentType) async {
+    try {
+      return await _apiService.getSuggestedGarments(category, garmentType);
+    } catch (e) {
+      print('Error getting suggested garments: $e');
+      return [];
+    }
+  }
+
+  // เพิ่มฟังก์ชันสำหรับสร้างคำอธิบายตามหมวดหมู่
+  String getCategoryDescription(String category) {
+    final Map<String, String> descriptions = {
+      'casual top': 'เสื้อผ้าแบบลำลองที่สวมใส่สบายเหมาะกับการใช้ชีวิตประจำวัน',
+      'formal top': 'เสื้อผ้าทางการที่เหมาะสำหรับโอกาสพิเศษหรือการทำงาน',
+      'fashion top': 'เสื้อผ้าที่มีดีไซน์ทันสมัยตามเทรนด์แฟชั่นปัจจุบัน',
+      'sports top': 'เสื้อผ้าที่ออกแบบมาสำหรับกิจกรรมกีฬาและการออกกำลังกาย',
+      'winter top': 'เสื้อผ้าที่ให้ความอบอุ่นเหมาะสำหรับสภาพอากาศหนาวเย็น',
+      'casual lower':
+          'กางเกงหรือกระโปรงแบบลำลองที่สวมใส่สบายเหมาะกับการใช้ชีวิตประจำวัน',
+      'formal lower':
+          'กางเกงหรือกระโปรงทางการที่เหมาะสำหรับโอกาสพิเศษหรือการทำงาน',
+      'fashion lower':
+          'กางเกงหรือกระโปรงที่มีดีไซน์ทันสมัยตามเทรนด์แฟชั่นปัจจุบัน',
+      'sports lower':
+          'กางเกงหรือกระโปรงที่ออกแบบมาสำหรับกิจกรรมกีฬาและการออกกำลังกาย',
+      'winter lower':
+          'กางเกงหรือกระโปรงที่ให้ความอบอุ่นเหมาะสำหรับสภาพอากาศหนาวเย็น',
+      'Unknown': 'ไม่สามารถระบุหมวดหมู่ของเสื้อผ้าได้',
+    };
+
+    return descriptions[category] ?? 'ไม่มีคำอธิบายสำหรับหมวดหมู่นี้';
+  }
+
+  // เพิ่มฟังก์ชันสำหรับสร้างชื่อสไตล์จากหมวดหมู่
+  String getStyleNameFromCategories(
+      String upperCategory, String lowerCategory) {
+    // ถ้ามีแค่ส่วนบนหรือส่วนล่าง
+    if (upperCategory == 'Unknown' && lowerCategory != 'Unknown') {
+      return '${lowerCategory.split(' ')[0]} Style';
+    } else if (upperCategory != 'Unknown' && lowerCategory == 'Unknown') {
+      return '${upperCategory.split(' ')[0]} Style';
+    }
+
+    // ถ้ามีทั้งส่วนบนและส่วนล่าง
+    if (upperCategory.split(' ')[0] == lowerCategory.split(' ')[0]) {
+      // ถ้าหมวดหมู่เหมือนกัน เช่น casual top + casual lower
+      return '${upperCategory.split(' ')[0]} Style';
+    } else {
+      // ถ้าหมวดหมู่ต่างกัน เช่น casual top + formal lower
+      return 'Mixed ${upperCategory.split(' ')[0]}-${lowerCategory.split(' ')[0]} Style';
     }
   }
 }

@@ -24,6 +24,9 @@ class _MatchingPageState extends State<MatchingPage> {
   List<Map<String, dynamic>> lowerGarments = [];
   bool isLoading = false;
 
+  String? upperCategory;
+  String? lowerCategory;
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +47,9 @@ class _MatchingPageState extends State<MatchingPage> {
     super.didChangeDependencies();
     // รีเซ็ตการเลือกเสื้อผ้าเมื่อหน้าถูกแสดงอีกครั้ง
     _resetSelection();
+
+    // โหลดข้อมูลเสื้อผ้าใหม่เมื่อกลับมาที่หน้านี้
+    _loadGarments();
   }
 
   // เพิ่มฟังก์ชันรีเซ็ตการเลือกเสื้อผ้า
@@ -51,7 +57,19 @@ class _MatchingPageState extends State<MatchingPage> {
     setState(() {
       selectedUpperGarment = null;
       selectedLowerGarment = null;
+      upperCategory = null;
+      lowerCategory = null;
     });
+  }
+
+  // เพิ่มฟังก์ชันสำหรับวิเคราะห์หมวดหมู่เสื้อผ้า
+  Future<String> _classifyGarment(String garmentId, String garmentType) async {
+    try {
+      return await _garmentService.classifyGarment(garmentId, garmentType);
+    } catch (e) {
+      print('Error classifying garment: $e');
+      return 'Unknown';
+    }
   }
 
   // เพิ่มฟังก์ชันโหลดเสื้อผ้าจาก Wardrobe
@@ -89,181 +107,263 @@ class _MatchingPageState extends State<MatchingPage> {
   }
 
   // เพิ่มฟังก์ชันเปิด dialog เลือกเสื้อผ้าส่วนบน
-  Future<void> _selectUpperGarment() async {
-    // เพิ่มการรีโหลดข้อมูลก่อนแสดง dialog
+  void _selectUpperGarment(Map<String, dynamic> garment) async {
+    setState(() {
+      selectedUpperGarment = garment;
+      // รีเซ็ตหมวดหมู่เพื่อรอการวิเคราะห์ใหม่
+      upperCategory = null;
+    });
+
+    // วิเคราะห์หมวดหมู่เสื้อผ้า
+    final category = await _classifyGarment(garment['_id'], 'upper');
+    setState(() {
+      upperCategory = category;
+    });
+    print('Upper garment classified as: $category');
+  }
+
+  // เพิ่มฟังก์ชันเปิด dialog เลือกเสื้อผ้าส่วนล่าง
+  void _selectLowerGarment(Map<String, dynamic> garment) async {
+    setState(() {
+      selectedLowerGarment = garment;
+      // รีเซ็ตหมวดหมู่เพื่อรอการวิเคราะห์ใหม่
+      lowerCategory = null;
+    });
+
+    // วิเคราะห์หมวดหมู่เสื้อผ้า
+    final category = await _classifyGarment(garment['_id'], 'lower');
+    setState(() {
+      lowerCategory = category;
+    });
+    print('Lower garment classified as: $category');
+  }
+
+  // เพิ่มฟังก์ชันสำหรับแสดง dialog เลือกเสื้อผ้าส่วนบน
+  void _showUpperGarmentSelector() async {
+    // โหลดข้อมูลเสื้อผ้าใหม่ก่อนแสดง dialog
     await _loadGarments();
 
-    // แสดง loading dialog ระหว่างโหลดข้อมูล
-    if (isLoading) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(color: Color(0xFF9B7EBD)),
-        ),
-      );
-      await Future.delayed(const Duration(seconds: 1));
-      Navigator.pop(context);
-    }
-
-    if (upperGarments.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('No upper garments found in your wardrobe')),
-      );
-      return;
-    }
-
-    // เพิ่ม print เพื่อตรวจสอบข้อมูล
-    print('Upper garments count: ${upperGarments.length}');
-
-    await showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          'Select Upper Garment',
-          style:
-              TextStyle(color: Color(0xFF9B7EBD), fontWeight: FontWeight.bold),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
         ),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 300,
-          child: GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-            ),
-            itemCount: upperGarments.length,
-            itemBuilder: (context, index) {
-              final garment = upperGarments[index];
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedUpperGarment = garment;
-                  });
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                        color: Color(0xFF9B7EBD),
-                        width: 2), // เปลี่ยนสีขอบเป็นสีม่วง
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      garment['garment_image'] ?? '',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(
-                        Icons.broken_image,
-                        size: 50,
-                        color: Colors.grey,
-                      ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'เลือกเสื้อผ้าส่วนบน',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-              );
-            },
-          ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : upperGarments.isEmpty
+                      ? const Center(child: Text('ไม่พบเสื้อผ้าส่วนบน'))
+                      : GridView.builder(
+                          padding: const EdgeInsets.all(16),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 0.75,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                          ),
+                          itemCount: upperGarments.length,
+                          itemBuilder: (context, index) {
+                            final garment = upperGarments[index];
+                            return GestureDetector(
+                              onTap: () {
+                                _selectUpperGarment(garment);
+                                Navigator.pop(context);
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  border:
+                                      Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: ClipRRect(
+                                        borderRadius: const BorderRadius.only(
+                                          topLeft: Radius.circular(10),
+                                          topRight: Radius.circular(10),
+                                        ),
+                                        child: Image.network(
+                                          garment['garment_image'],
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  const Icon(
+                                            Icons.broken_image,
+                                            size: 50,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Text(
+                                        garment['garment_name'] ?? 'ไม่มีชื่อ',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
       ),
     );
   }
 
-  // เพิ่มฟังก์ชันเปิด dialog เลือกเสื้อผ้าส่วนล่าง
-  Future<void> _selectLowerGarment() async {
-    // เพิ่มการรีโหลดข้อมูลก่อนแสดง dialog
+  // เพิ่มฟังก์ชันสำหรับแสดง dialog เลือกเสื้อผ้าส่วนล่าง
+  void _showLowerGarmentSelector() async {
+    // โหลดข้อมูลเสื้อผ้าใหม่ก่อนแสดง dialog
     await _loadGarments();
 
-    // แสดง loading dialog ระหว่างโหลดข้อมูล
-    if (isLoading) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(color: Color(0xFF9B7EBD)),
-        ),
-      );
-      await Future.delayed(const Duration(seconds: 1));
-      Navigator.pop(context);
-    }
-
-    if (lowerGarments.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('No lower garments found in your wardrobe')),
-      );
-      return;
-    }
-
-    // เพิ่ม print เพื่อตรวจสอบข้อมูล
-    print('Lower garments count: ${lowerGarments.length}');
-
-    await showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          'Select Lower Garment',
-          style:
-              TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF9B7EBD)),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
         ),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 300,
-          child: GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-            ),
-            itemCount: lowerGarments.length,
-            itemBuilder: (context, index) {
-              final garment = lowerGarments[index];
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedLowerGarment = garment;
-                  });
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                        color: const Color(0xFF9B7EBD),
-                        width: 2), // เปลี่ยนสีขอบเป็นสีม่วง
-                    borderRadius: BorderRadius.circular(12), // เพิ่มขอบมน
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      garment['garment_image'] ?? '',
-                      fit: BoxFit.fill,
-                      errorBuilder: (context, error, stackTrace) => const Icon(
-                        Icons.broken_image,
-                        size: 50,
-                        color: Colors.grey,
-                      ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'เลือกเสื้อผ้าส่วนล่าง',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-              );
-            },
-          ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : lowerGarments.isEmpty
+                      ? const Center(child: Text('ไม่พบเสื้อผ้าส่วนล่าง'))
+                      : GridView.builder(
+                          padding: const EdgeInsets.all(16),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 0.75,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                          ),
+                          itemCount: lowerGarments.length,
+                          itemBuilder: (context, index) {
+                            final garment = lowerGarments[index];
+                            return GestureDetector(
+                              onTap: () {
+                                _selectLowerGarment(garment);
+                                Navigator.pop(context);
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  border:
+                                      Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: ClipRRect(
+                                        borderRadius: const BorderRadius.only(
+                                          topLeft: Radius.circular(10),
+                                          topRight: Radius.circular(10),
+                                        ),
+                                        child: Image.network(
+                                          garment['garment_image'],
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  const Icon(
+                                            Icons.broken_image,
+                                            size: 50,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Text(
+                                        garment['garment_name'] ?? 'ไม่มีชื่อ',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
       ),
     );
   }
@@ -393,7 +493,9 @@ class _MatchingPageState extends State<MatchingPage> {
                 const SizedBox(height: 24),
                 // แก้ไข GestureDetector สำหรับเลือกเสื้อผ้าส่วนบน
                 GestureDetector(
-                  onTap: _selectUpperGarment,
+                  onTap: () {
+                    _showUpperGarmentSelector();
+                  },
                   child: Center(
                     child: Container(
                       width: 230,
@@ -452,7 +554,9 @@ class _MatchingPageState extends State<MatchingPage> {
                 const SizedBox(height: 16), // ลดระยะห่างลง
                 // แก้ไข GestureDetector สำหรับเลือกเสื้อผ้าส่วนล่าง
                 GestureDetector(
-                  onTap: _selectLowerGarment,
+                  onTap: () {
+                    _showLowerGarmentSelector();
+                  },
                   child: Center(
                     child: Container(
                       width: 230,
@@ -539,12 +643,19 @@ class _MatchingPageState extends State<MatchingPage> {
                               'user_id': userId,
                               'garment_top': selectedUpperGarment?['_id'],
                               'garment_bottom': selectedLowerGarment?['_id'],
-                              'matching_result':
-                                  'Vintage Style', // ตัวอย่างผลลัพธ์
-                              'matching_detail':
-                                  'Bringing back or reinterpreting past fashion styles, such as flared jeans that were popular in the 60s and have become trendy again in the present day.',
                               'matching_date': DateTime.now().toIso8601String(),
-                              'is_favorite': false,
+                              'matching_result':
+                                  _garmentService.getStyleNameFromCategories(
+                                      upperCategory ?? 'Unknown',
+                                      lowerCategory ?? 'Unknown'),
+                              'matching_detail': _garmentService
+                                  .getCategoryDescription(upperCategory ??
+                                      lowerCategory ??
+                                      'Unknown'), // เพิ่ม matching_detail
+                              'is_favorite':
+                                  false, // เพิ่ม is_favorite เป็นค่าเริ่มต้น
+                              'upper_category': upperCategory ?? 'Unknown',
+                              'lower_category': lowerCategory ?? 'Unknown',
                             };
 
                             print('Sending matching data: $matchingData');
@@ -559,63 +670,47 @@ class _MatchingPageState extends State<MatchingPage> {
                             print('Received response: $response');
 
                             // ตรวจสอบและดึง matchingId จาก response
-                            String? matchingId;
+                            String matchingId;
                             if (response != null) {
-                              if (response is Map<String, dynamic>) {
-                                // ถ้า response เป็น Map และมี key 'matching_id'
-                                if (response.containsKey('matching_id')) {
-                                  matchingId = response['matching_id'];
-                                }
-                                // ถ้า response เป็น Map และมี key '_id'
-                                else if (response.containsKey('_id')) {
-                                  matchingId = response['_id'];
-                                }
-                                // ถ้า response เป็น Map และมี key 'data' ที่มี '_id'
-                                else if (response.containsKey('data') &&
-                                    response['data'] is Map &&
-                                    response['data'].containsKey('_id')) {
-                                  matchingId = response['data']['_id'];
-                                }
+                              if (response.containsKey('_id')) {
+                                matchingId = response['_id'];
 
-                                print('Extracted Matching ID: $matchingId');
+                                // สร้างชื่อสไตล์และคำอธิบายจากหมวดหมู่
+                                final styleName =
+                                    _garmentService.getStyleNameFromCategories(
+                                        upperCategory ?? 'Unknown',
+                                        lowerCategory ?? 'Unknown');
 
-                                if (matchingId != null) {
-                                  // ส่งข้อมูลเสื้อผ้าที่เลือกไปยังหน้า MatchingResult
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => MatchingResult(
-                                        upperGarment: selectedUpperGarment,
-                                        lowerGarment: selectedLowerGarment,
-                                        matchingId: matchingId,
-                                      ),
+                                final styleDescription = _garmentService
+                                    .getCategoryDescription(upperCategory ??
+                                        lowerCategory ??
+                                        'Unknown');
+
+                                // อัปเดตข้อมูล matching ด้วยชื่อสไตล์และคำอธิบาย
+                                await _garmentService.updateMatchingDetail(
+                                    matchingId, styleDescription);
+
+                                // ส่งข้อมูลเสื้อผ้าที่เลือกไปยังหน้า MatchingResult
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => MatchingResult(
+                                      upperGarment: selectedUpperGarment,
+                                      lowerGarment: selectedLowerGarment,
+                                      matchingId: matchingId,
+                                      matchingResult: styleName,
+                                      matchingDetail: styleDescription,
                                     ),
-                                  ).then((_) {
-                                    // เมื่อกลับมาจากหน้า MatchingResult ให้รีเซ็ตการเลือกเสื้อผ้า
-                                    setState(() {
-                                      selectedUpperGarment = null;
-                                      selectedLowerGarment = null;
-                                    });
-                                  });
-                                } else {
-                                  // กรณีไม่สามารถดึง matchingId ได้
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content:
-                                          Text('Failed to get matching ID'),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-                                }
-                              } else {
-                                // กรณีไม่ได้รับ response
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content:
-                                        Text('Failed to save matching data'),
-                                    duration: Duration(seconds: 2),
                                   ),
-                                );
+                                ).then((_) {
+                                  // เมื่อกลับมาจากหน้า MatchingResult ให้รีเซ็ตการเลือกเสื้อผ้า
+                                  setState(() {
+                                    selectedUpperGarment = null;
+                                    selectedLowerGarment = null;
+                                    upperCategory = null;
+                                    lowerCategory = null;
+                                  });
+                                });
                               }
                             } else {
                               // กรณีไม่ได้ล็อกอิน

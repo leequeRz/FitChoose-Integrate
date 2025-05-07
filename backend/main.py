@@ -60,7 +60,13 @@ router = APIRouter()
 #     name: str
 #     price: float
 #     is_offer: Union[bool, None] = None
-
+@app.on_event("startup")
+async def startup_event():
+    # Load models
+    app.state.clip_upper_model, app.state.clip_upper_processor = load_clip_upper_model()
+    app.state.clip_lower_model, app.state.clip_lower_processor = load_clip_lower_model()
+    # Start task worker
+    asyncio.create_task(task_worker())
 class A(BaseModel): # สร้าง BaseModel ของ YOLO
     image_url: str
 
@@ -340,6 +346,115 @@ async def classify_image(file: UploadFile = File(...)):
             return {"message": "success", "classification": result}
             
         await asyncio.sleep(0.2)
+
+# เพิ่ม endpoint สำหรับการวิเคราะห์หมวดหมู่เสื้อผ้า
+# เพิ่ม endpoint สำหรับการวิเคราะห์หมวดหมู่เสื้อผ้า
+@app.post("/classify_garment")
+async def classify_garment(request: Request):
+    data = await request.json()
+    garment_id = data.get("garment_id")
+    garment_type = data.get("garment_type")
+    
+    if not garment_id or not garment_type:
+        raise HTTPException(status_code=400, detail="Missing garment_id or garment_type")
+    
+    try:
+        # ดึงข้อมูลเสื้อผ้าจาก MongoDB - แก้ไขโดยลบ await
+        garment = garment_collection.find_one({"_id": ObjectId(garment_id)})
+        if not garment:
+            raise HTTPException(status_code=404, detail="Garment not found")
+        
+        # ดึง URL รูปภาพ
+        image_url = garment.get("garment_image")
+        if not image_url:
+            raise HTTPException(status_code=400, detail="Garment has no image")
+        
+        # ดาวน์โหลดรูปภาพ
+        response = requests.get(image_url)
+        if response.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to download image")
+        
+        # สร้าง task_id สำหรับการประมวลผล
+        task_id = str(uuid4())
+        
+        # สร้าง UploadFile จากข้อมูลรูปภาพ
+        import io
+        file_content = response.content
+        file = UploadFile(
+            filename=f"{garment_id}.jpg",
+            file=io.BytesIO(file_content)
+        )
+        
+        # เลือกโมเดลตามประเภทเสื้อผ้า
+        if garment_type.lower() == "upper":
+            await app.task_queue.put(
+                lambda: process_clip_upper_classification(
+                    task_id, file, app.state.clip_upper_model, app.state.clip_upper_processor
+                )
+            )
+        elif garment_type.lower() == "lower":
+            await app.task_queue.put(
+                lambda: process_clip_lower_classification(
+                    task_id, file, app.state.clip_lower_model, app.state.clip_lower_processor
+                )
+            )
+        else:
+            raise HTTPException(status_code=400, detail="Invalid garment type")
+        
+        start = time.time()
+        
+        print(f"Classification task {task_id} added to queue")
+        
+        while True:
+            if int(time.time() - start) % 5 == 0:
+                print(f"Waiting for task {task_id}, elapsed time: {time.time() - start:.2f}s")
+                
+            if time.time() - start > 30:
+                return {"message": "timeout", "task_id": task_id}
+                
+            if task_id in results:
+                result = results.pop(task_id)
+                if "error" in result:
+                    return {"message": "error", "error": result["error"]}
+                
+                # ส่งผลลัพธ์กลับไป
+                return {"category": result["label"]}
+                
+            await asyncio.sleep(0.2)
+    
+    except Exception as e:
+        print(f"Error in classify_garment: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# เพิ่ม endpoint สำหรับการแนะนำเสื้อผ้าที่เข้ากัน
+@app.get("/suggest_garments")
+async def suggest_garments(category: str, garment_type: str):
+    if not category or not garment_type:
+        raise HTTPException(status_code=400, detail="Missing category or garment_type")
+    
+    try:
+        # ดึงเสื้อผ้าตามประเภทและหมวดหมู่
+        # ตัวอย่างเช่น ถ้า category = "casual" และ garment_type = "lower"
+        # จะดึงเสื้อผ้าส่วนล่างที่เป็นแบบลำลอง
+        
+        # ดึงเสื้อผ้าทั้งหมดตามประเภท
+        cursor = garment_collection.find({"garment_type": garment_type})
+        garments = await cursor.to_list(length=100)
+        
+        # แปลง ObjectId เป็น string
+        for garment in garments:
+            garment["_id"] = str(garment["_id"])
+        
+        # สุ่มเลือกเสื้อผ้าไม่เกิน 10 ชิ้น
+        import random
+        if len(garments) > 10:
+            garments = random.sample(garments, 10)
+        
+        return garments
+    
+    except Exception as e:
+        print(f"Error in suggest_garments: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Mobile Application Endpoints all below
 @router.get("/")
@@ -631,32 +746,29 @@ async def update_favorite(matching_id: str, data: FavoriteModel):
         print(f"Error updating favorite status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# เพิ่ม route สำหรับการอัปเดต matching detail
-@router.put("/matchings/{matching_id}/detail")
-async def update_matching_detail(matching_id: str, data: dict):
+# เพิ่ม endpoint สำหรับการอัปเดตข้อมูล matching
+@app.put("/matchings/{matching_id}/detail")
+async def update_matching_detail(matching_id: str, request: Request):
+    data = await request.json()
+    matching_detail = data.get("matching_detail")
+    
+    if not matching_detail:
+        raise HTTPException(status_code=400, detail="Missing matching_detail")
+    
     try:
-        matching_detail = data.get("matching_detail")
-        if not matching_detail:
-            raise HTTPException(status_code=400, detail="Matching detail is required")
-        
-        # ตรวจสอบว่ามี matching นี้หรือไม่
-        matching = matching_collection.find_one({"_id": ObjectId(matching_id)})
-        if not matching:
-            raise HTTPException(status_code=404, detail="Matching not found")
-        
-        # อัปเดต matching detail
-        matching_collection.update_one(
-            {"_id": ObjectId(matching_id)}, 
+        # อัปเดตข้อมูล matching
+        result = await matching_collection.update_one(
+            {"_id": ObjectId(matching_id)},
             {"$set": {"matching_detail": matching_detail}}
         )
         
-        # ดึงข้อมูลที่อัปเดตแล้ว
-        updated_matching = matching_collection.find_one({"_id": ObjectId(matching_id)})
-        updated_matching["_id"] = str(updated_matching["_id"])
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Matching not found or not updated")
         
-        return updated_matching
+        return {"message": "Matching detail updated successfully"}
+    
     except Exception as e:
-        print(f"Error updating matching detail: {e}")
+        print(f"Error in update_matching_detail: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # เพิ่ม route สำหรับการลบ matching

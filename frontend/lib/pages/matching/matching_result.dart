@@ -35,6 +35,8 @@ class _MatchingResultState extends State<MatchingResult> {
       'Bringing back or reinterpreting past fashion styles, such as flared jeans that were popular in the 60s and have become trendy again in the present day.'; // ค่าเริ่มต้น
   Map<String, dynamic>? upperGarment;
   Map<String, dynamic>? lowerGarment;
+  List<Map<String, dynamic>> suggestedGarments = [];
+  bool isLoadingSuggestions = false;
 
   final List<String> clothingItems = [
     'assets/images/test.png',
@@ -74,6 +76,43 @@ class _MatchingResultState extends State<MatchingResult> {
             widget.matchingDetail == null ||
             widget.matchingResult == null)) {
       _loadMatchingDetails();
+    }
+
+    // โหลดเสื้อผ้าที่แนะนำ
+    _loadSuggestedGarments();
+  }
+
+// เพิ่มเมธอดสำหรับโหลดเสื้อผ้าที่แนะนำ
+  Future<void> _loadSuggestedGarments() async {
+    setState(() {
+      isLoadingSuggestions = true;
+    });
+
+    try {
+      // ตรวจสอบว่ามีเสื้อผ้าส่วนบนหรือส่วนล่าง
+      if (upperGarment != null && lowerGarment == null) {
+        // ถ้ามีแค่เสื้อผ้าส่วนบน ให้แนะนำเสื้อผ้าส่วนล่างที่เข้ากัน
+        final category = matchingResult.split(' ')[0].toLowerCase();
+        final suggestions =
+            await _garmentService.getSuggestedGarments(category, 'lower');
+        setState(() {
+          suggestedGarments = suggestions;
+        });
+      } else if (upperGarment == null && lowerGarment != null) {
+        // ถ้ามีแค่เสื้อผ้าส่วนล่าง ให้แนะนำเสื้อผ้าส่วนบนที่เข้ากัน
+        final category = matchingResult.split(' ')[0].toLowerCase();
+        final suggestions =
+            await _garmentService.getSuggestedGarments(category, 'upper');
+        setState(() {
+          suggestedGarments = suggestions;
+        });
+      }
+    } catch (e) {
+      print('Error loading suggested garments: $e');
+    } finally {
+      setState(() {
+        isLoadingSuggestions = false;
+      });
     }
   }
 
@@ -235,13 +274,53 @@ class _MatchingResultState extends State<MatchingResult> {
                     },
                   ),
                   SizedBox(height: 24),
-                  MatchingPictureSuggest(
-                      title: 'Matching Outfits',
-                      imageUrls: [
-                        'assets/images/test.png',
-                        'assets/images/test.png'
+                  Container(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'แนะนำเสื้อผ้าที่เข้ากัน',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF3B1E54),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        isLoadingSuggestions
+                            ? const Center(child: CircularProgressIndicator())
+                            : suggestedGarments.isEmpty
+                                ? const Center(
+                                    child: Text('ไม่มีเสื้อผ้าที่แนะนำ'))
+                                : SizedBox(
+                                    height: 120,
+                                    child: ListView.builder(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: suggestedGarments.length,
+                                      itemBuilder: (context, index) {
+                                        final garment =
+                                            suggestedGarments[index];
+                                        return Padding(
+                                          padding:
+                                              const EdgeInsets.only(right: 8.0),
+                                          child: ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(8.0),
+                                            child: Image.network(
+                                              garment['garment_image'],
+                                              width: 100,
+                                              height: 120,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
                       ],
-                      onItemTap: (index) {}),
+                    ),
+                  ),
                 ],
               ),
             ),

@@ -11,6 +11,7 @@ cropped_images/
 backend/CLIP_api/best_Upper_f1.Pth
 *.pth
 backend/CLIP_api
+backend/matching_results
 
 # ไม่รวมรูปภาพที่ virtual_tryon_results
 backend/virtual_tryon_results/

@@ -313,7 +313,7 @@ class ApiService {
   }
 
 // เพิ่มฟังก์ชันสำหรับอัปเดต matching detail
-  Future<Map<String, dynamic>> updateMatchingDetail(
+  Future<void> updateMatchingDetail(
       String matchingId, String matchingDetail) async {
     try {
       print('Updating detail for matching: $matchingId');
@@ -556,6 +556,53 @@ class ApiService {
     } catch (e) {
       print('Error deleting Virtual Try-On: $e');
       return false;
+    }
+  }
+
+  // เพิ่ม API endpoint สำหรับการวิเคราะห์หมวดหมู่เสื้อผ้า
+  Future<Map<String, dynamic>> classifyGarment(
+      String garmentId, String garmentType) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/classify_garment'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'garment_id': garmentId,
+          'garment_type': garmentType,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to classify garment: ${response.body}');
+      }
+    } catch (e) {
+      print('Error in classifyGarment: $e');
+      throw Exception('Failed to connect to server: $e');
+    }
+  }
+
+  // เพิ่ม API endpoint สำหรับการแนะนำเสื้อผ้าที่เข้ากัน
+  Future<List<Map<String, dynamic>>> getSuggestedGarments(
+      String category, String garmentType) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+            '$baseUrl/suggest_garments?category=$category&garment_type=$garmentType'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        throw Exception('Failed to get suggested garments: ${response.body}');
+      }
+    } catch (e) {
+      print('Error in getSuggestedGarments: $e');
+      throw Exception('Failed to connect to server: $e');
     }
   }
 }
