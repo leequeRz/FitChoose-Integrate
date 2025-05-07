@@ -87,42 +87,30 @@ class _MatchingResultState extends State<MatchingResult> {
     });
 
     try {
-      // ใช้ชื่อสไตล์จาก matchingResult เพื่อขอคำแนะนำ
-      final style = matchingResult.split(' ')[0].toLowerCase();
+      // ตรวจสอบว่ามีหมวดหมู่ที่ได้รับการวิเคราะห์แล้ว
+      if (widget.matchingResult != null && widget.matchingResult!.isNotEmpty) {
+        final style = widget.matchingResult!.split(' ')[0].toLowerCase();
 
-      // เรียกใช้ API เพื่อขอคำแนะนำเสื้อผ้า
-      try {
-        final upperResponse = await http.get(
+        // ตรวจสอบว่ามีการเลือกเสื้อผ้าส่วนบนหรือส่วนล่าง
+        String selectedType = "";
+        if (widget.upperGarment != null && widget.lowerGarment == null) {
+          selectedType = "upper";
+        } else if (widget.lowerGarment != null && widget.upperGarment == null) {
+          selectedType = "lower";
+        }
+
+        // เรียกใช้ API เพื่อขอคำแนะนำเสื้อผ้า
+        final response = await http.get(
           Uri.parse(
-              '${_apiService.baseUrl}/suggest_garments?category=$style&garment_type=upper'),
+              '${_apiService.baseUrl}/suggest_garments?category=$style&garment_type=all&selected_type=$selectedType'),
         );
 
-        if (upperResponse.statusCode == 200) {
-          final upperData = jsonDecode(upperResponse.body);
+        if (response.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(response.body);
           setState(() {
-            suggestedUpperGarment =
-                upperData is List ? upperData.first : upperData;
+            suggestedGarments = List<Map<String, dynamic>>.from(data);
           });
         }
-      } catch (e) {
-        print('Error loading suggested upper garments: $e');
-      }
-
-      try {
-        final lowerResponse = await http.get(
-          Uri.parse(
-              '${_apiService.baseUrl}/suggest_garments?category=$style&garment_type=lower'),
-        );
-
-        if (lowerResponse.statusCode == 200) {
-          final lowerData = jsonDecode(lowerResponse.body);
-          setState(() {
-            suggestedLowerGarment =
-                lowerData is List ? lowerData.first : lowerData;
-          });
-        }
-      } catch (e) {
-        print('Error loading suggested lower garments: $e');
       }
     } catch (e) {
       print('Error loading suggested garments: $e');
@@ -218,22 +206,19 @@ class _MatchingResultState extends State<MatchingResult> {
         const SizedBox(height: 16),
         if (isLoading)
           const Center(child: CircularProgressIndicator())
-        else if (suggestedUpperGarment != null || suggestedLowerGarment != null)
-          Column(
-            children: [
-              if (suggestedUpperGarment != null)
-                _buildSuggestedGarmentCard(
-                  suggestedUpperGarment!['category'],
-                  suggestedUpperGarment!['description'],
-                  '${_apiService.baseUrl}${suggestedUpperGarment!['image_url']}',
-                ),
-              if (suggestedLowerGarment != null)
-                _buildSuggestedGarmentCard(
-                  suggestedLowerGarment!['category'],
-                  suggestedLowerGarment!['description'],
-                  '${_apiService.baseUrl}${suggestedLowerGarment!['image_url']}',
-                ),
-            ],
+        else if (suggestedGarments.isNotEmpty)
+          ListView.builder(
+            shrinkWrap: true,
+            physics: NeverScrollableScrollPhysics(),
+            itemCount: suggestedGarments.length,
+            itemBuilder: (context, index) {
+              final garment = suggestedGarments[index];
+              return _buildSuggestedGarmentCard(
+                garment['category'],
+                garment['description'],
+                '${_apiService.baseUrl}${garment['image_url']}',
+              );
+            },
           )
         else
           const Center(child: Text('ไม่มีรูปภาพแนะนำ')),

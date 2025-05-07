@@ -433,7 +433,7 @@ async def classify_garment(request: Request):
 
 # เพิ่ม endpoint สำหรับการแนะนำเสื้อผ้าที่เข้ากัน
 @app.get("/suggest_garments")
-async def suggest_garments(category: str, garment_type: str):
+async def suggest_garments(category: str, garment_type: str, selected_type: str = None):
     try:
         # ตรวจสอบว่าหมวดหมู่และประเภทเสื้อผ้าถูกต้อง
         if not category or not garment_type:
@@ -456,11 +456,11 @@ async def suggest_garments(category: str, garment_type: str):
             return {"error": f"No images found for category: {category}"}
         
         # เลือกรูปภาพแบบสุ่ม
-        selected_image = random.choice(image_files)
-        image_path = os.path.join(image_folder, selected_image)
+        # selected_image = random.choice(image_files)
+        # image_path = os.path.join(image_folder, selected_image)
         
         # สร้าง URL สำหรับเข้าถึงรูปภาพ
-        image_url = f"/static/{gender}/{category}/{selected_image}"
+        # image_url = f"/static/{gender}/{category}/{selected_image}"
         
         # ข้อมูลคำอธิบายสำหรับแต่ละหมวดหมู่
         category_descriptions = {
@@ -473,11 +473,27 @@ async def suggest_garments(category: str, garment_type: str):
         
         description = category_descriptions.get(category, "")
         
-        return {
-            "category": category,
-            "description": description,
-            "image_url": image_url
-        }
+        # กำหนดประเภทเสื้อผ้าที่จะแนะนำ (ตรงข้ามกับที่เลือก)
+        recommend_type = "lower" if selected_type == "upper" else "upper"
+
+        # ถ้าไม่ได้ระบุ selected_type ให้แนะนำตามที่ร้องขอใน garment_type
+        if selected_type is None:
+            recommend_type = garment_type
+        
+        # สร้างรายการรูปภาพทั้งหมด
+        result_images = []
+        for img_file in image_files:
+            # สร้าง URL สำหรับเข้าถึงรูปภาพ
+            image_url = f"/static/{gender}/{category}/{img_file}"
+            
+            result_images.append({
+                "category": category,
+                "description": description,
+                "image_url": image_url,
+                "type": recommend_type
+            })
+        
+        return result_images
     except Exception as e:
         print(f"Error in suggest_garments: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
