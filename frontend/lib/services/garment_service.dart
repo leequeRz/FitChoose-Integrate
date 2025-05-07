@@ -703,47 +703,45 @@ class GarmentService {
     }
   }
 
-  // เพิ่มฟังก์ชันสำหรับสร้างคำอธิบายตามหมวดหมู่
+  // เพิ่มฟังก์ชันสำหรับสร้างคำอธิบายจากหมวดหมู่
   String getCategoryDescription(String category) {
-    final Map<String, String> descriptions = {
-      'casual top': 'เสื้อผ้าแบบลำลองที่สวมใส่สบายเหมาะกับการใช้ชีวิตประจำวัน',
-      'formal top': 'เสื้อผ้าทางการที่เหมาะสำหรับโอกาสพิเศษหรือการทำงาน',
-      'fashion top': 'เสื้อผ้าที่มีดีไซน์ทันสมัยตามเทรนด์แฟชั่นปัจจุบัน',
-      'sports top': 'เสื้อผ้าที่ออกแบบมาสำหรับกิจกรรมกีฬาและการออกกำลังกาย',
-      'winter top': 'เสื้อผ้าที่ให้ความอบอุ่นเหมาะสำหรับสภาพอากาศหนาวเย็น',
-      'casual lower':
-          'กางเกงหรือกระโปรงแบบลำลองที่สวมใส่สบายเหมาะกับการใช้ชีวิตประจำวัน',
-      'formal lower':
-          'กางเกงหรือกระโปรงทางการที่เหมาะสำหรับโอกาสพิเศษหรือการทำงาน',
-      'fashion lower':
-          'กางเกงหรือกระโปรงที่มีดีไซน์ทันสมัยตามเทรนด์แฟชั่นปัจจุบัน',
-      'sports lower':
-          'กางเกงหรือกระโปรงที่ออกแบบมาสำหรับกิจกรรมกีฬาและการออกกำลังกาย',
-      'winter lower':
-          'กางเกงหรือกระโปรงที่ให้ความอบอุ่นเหมาะสำหรับสภาพอากาศหนาวเย็น',
-      'Unknown': 'ไม่สามารถระบุหมวดหมู่ของเสื้อผ้าได้',
-    };
-
-    return descriptions[category] ?? 'ไม่มีคำอธิบายสำหรับหมวดหมู่นี้';
+    // ตรวจสอบหมวดหมู่และกำหนดคำอธิบาย
+    if (category.toLowerCase().contains('casual')) {
+      return 'Comfortable casual wear suitable for everyday life.';
+    } else if (category.toLowerCase().contains('fashion')) {
+      return 'Trendy fashion wear, perfect for events or photo shoots.';
+    } else if (category.toLowerCase().contains('sport')) {
+      return 'Sportswear suitable for exercise or outdoor activities.';
+    } else if (category.toLowerCase().contains('formal')) {
+      return 'Formal wear suitable for meetings or ceremonial events.';
+    } else if (category.toLowerCase().contains('winter')) {
+      return 'Winter wear suitable for cold weather or the winter season.';
+    } else {
+      return 'No description available for this category.';
+    }
   }
 
   // เพิ่มฟังก์ชันสำหรับสร้างชื่อสไตล์จากหมวดหมู่
   String getStyleNameFromCategories(
       String upperCategory, String lowerCategory) {
-    // ถ้ามีแค่ส่วนบนหรือส่วนล่าง
-    if (upperCategory == 'Unknown' && lowerCategory != 'Unknown') {
-      return '${lowerCategory.split(' ')[0]} Style';
-    } else if (upperCategory != 'Unknown' && lowerCategory == 'Unknown') {
-      return '${upperCategory.split(' ')[0]} Style';
-    }
-
-    // ถ้ามีทั้งส่วนบนและส่วนล่าง
-    if (upperCategory.split(' ')[0] == lowerCategory.split(' ')[0]) {
-      // ถ้าหมวดหมู่เหมือนกัน เช่น casual top + casual lower
-      return '${upperCategory.split(' ')[0]} Style';
+    // ตรวจสอบหมวดหมู่และกำหนดชื่อสไตล์
+    if (upperCategory.toLowerCase().contains('casual') ||
+        lowerCategory.toLowerCase().contains('casual')) {
+      return 'Casual Style';
+    } else if (upperCategory.toLowerCase().contains('fashion') ||
+        lowerCategory.toLowerCase().contains('fashion')) {
+      return 'Fashion Style';
+    } else if (upperCategory.toLowerCase().contains('sport') ||
+        lowerCategory.toLowerCase().contains('sport')) {
+      return 'Sport Style';
+    } else if (upperCategory.toLowerCase().contains('formal') ||
+        lowerCategory.toLowerCase().contains('formal')) {
+      return 'Formal Style';
+    } else if (upperCategory.toLowerCase().contains('winter') ||
+        lowerCategory.toLowerCase().contains('winter')) {
+      return 'Winter Style';
     } else {
-      // ถ้าหมวดหมู่ต่างกัน เช่น casual top + formal lower
-      return 'Mixed ${upperCategory.split(' ')[0]}-${lowerCategory.split(' ')[0]} Style';
+      return 'Unknown Style';
     }
   }
 }

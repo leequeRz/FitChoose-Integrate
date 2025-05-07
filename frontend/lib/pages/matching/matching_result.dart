@@ -1,8 +1,12 @@
+import 'dart:convert';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fitchoose/components/container_matchingresult.dart';
 import 'package:fitchoose/components/pictureselect.dart';
-import 'package:fitchoose/components/matchingresult_picturesuggest.dart';
+import 'package:fitchoose/services/api_service.dart';
 import 'package:fitchoose/services/garment_service.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http show get;
 
 class MatchingResult extends StatefulWidget {
   // แก้ไขการประกาศพารามิเตอร์ให้ถูกต้อง
@@ -30,6 +34,7 @@ class _MatchingResultState extends State<MatchingResult> {
 
   // เพิ่มตัวแปรที่จำเป็น
   final GarmentService _garmentService = GarmentService();
+  final ApiService _apiService = ApiService();
   String matchingResult = 'Vintage Style'; // ค่าเริ่มต้น
   String matchingDetail =
       'Bringing back or reinterpreting past fashion styles, such as flared jeans that were popular in the 60s and have become trendy again in the present day.'; // ค่าเริ่มต้น
@@ -37,17 +42,10 @@ class _MatchingResultState extends State<MatchingResult> {
   Map<String, dynamic>? lowerGarment;
   List<Map<String, dynamic>> suggestedGarments = [];
   bool isLoadingSuggestions = false;
-
-  final List<String> clothingItems = [
-    'assets/images/test.png',
-    'assets/images/test.png',
-    'assets/images/test.png',
-    'assets/images/test.png',
-    'assets/images/test.png',
-    'assets/images/test.png',
-    'assets/images/test.png',
-    'assets/images/test.png',
-  ];
+  bool isLoading = false;
+  String? recommendationImageUrl;
+  Map<String, dynamic>? suggestedUpperGarment;
+  Map<String, dynamic>? suggestedLowerGarment;
 
   @override
   void initState() {
@@ -85,33 +83,52 @@ class _MatchingResultState extends State<MatchingResult> {
 // เพิ่มเมธอดสำหรับโหลดเสื้อผ้าที่แนะนำ
   Future<void> _loadSuggestedGarments() async {
     setState(() {
-      isLoadingSuggestions = true;
+      isLoading = true;
     });
 
     try {
-      // ตรวจสอบว่ามีเสื้อผ้าส่วนบนหรือส่วนล่าง
-      if (upperGarment != null && lowerGarment == null) {
-        // ถ้ามีแค่เสื้อผ้าส่วนบน ให้แนะนำเสื้อผ้าส่วนล่างที่เข้ากัน
-        final category = matchingResult.split(' ')[0].toLowerCase();
-        final suggestions =
-            await _garmentService.getSuggestedGarments(category, 'lower');
-        setState(() {
-          suggestedGarments = suggestions;
-        });
-      } else if (upperGarment == null && lowerGarment != null) {
-        // ถ้ามีแค่เสื้อผ้าส่วนล่าง ให้แนะนำเสื้อผ้าส่วนบนที่เข้ากัน
-        final category = matchingResult.split(' ')[0].toLowerCase();
-        final suggestions =
-            await _garmentService.getSuggestedGarments(category, 'upper');
-        setState(() {
-          suggestedGarments = suggestions;
-        });
+      // ใช้ชื่อสไตล์จาก matchingResult เพื่อขอคำแนะนำ
+      final style = matchingResult.split(' ')[0].toLowerCase();
+
+      // เรียกใช้ API เพื่อขอคำแนะนำเสื้อผ้า
+      try {
+        final upperResponse = await http.get(
+          Uri.parse(
+              '${_apiService.baseUrl}/suggest_garments?category=$style&garment_type=upper'),
+        );
+
+        if (upperResponse.statusCode == 200) {
+          final upperData = jsonDecode(upperResponse.body);
+          setState(() {
+            suggestedUpperGarment =
+                upperData is List ? upperData.first : upperData;
+          });
+        }
+      } catch (e) {
+        print('Error loading suggested upper garments: $e');
+      }
+
+      try {
+        final lowerResponse = await http.get(
+          Uri.parse(
+              '${_apiService.baseUrl}/suggest_garments?category=$style&garment_type=lower'),
+        );
+
+        if (lowerResponse.statusCode == 200) {
+          final lowerData = jsonDecode(lowerResponse.body);
+          setState(() {
+            suggestedLowerGarment =
+                lowerData is List ? lowerData.first : lowerData;
+          });
+        }
+      } catch (e) {
+        print('Error loading suggested lower garments: $e');
       }
     } catch (e) {
       print('Error loading suggested garments: $e');
     } finally {
       setState(() {
-        isLoadingSuggestions = false;
+        isLoading = false;
       });
     }
   }
@@ -183,6 +200,110 @@ class _MatchingResultState extends State<MatchingResult> {
     } catch (e) {
       print('Error loading lower garment: $e');
     }
+  }
+
+  // ในส่วนของการแสดงผล
+  Widget _buildSuggestedGarments() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'แนะนำเสื้อผ้าที่เข้ากัน',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF3B1E54),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (suggestedUpperGarment != null || suggestedLowerGarment != null)
+          Column(
+            children: [
+              if (suggestedUpperGarment != null)
+                _buildSuggestedGarmentCard(
+                  suggestedUpperGarment!['category'],
+                  suggestedUpperGarment!['description'],
+                  '${_apiService.baseUrl}${suggestedUpperGarment!['image_url']}',
+                ),
+              if (suggestedLowerGarment != null)
+                _buildSuggestedGarmentCard(
+                  suggestedLowerGarment!['category'],
+                  suggestedLowerGarment!['description'],
+                  '${_apiService.baseUrl}${suggestedLowerGarment!['image_url']}',
+                ),
+            ],
+          )
+        else
+          const Center(child: Text('ไม่มีรูปภาพแนะนำ')),
+      ],
+    );
+  }
+
+  // เพิ่มฟังก์ชันสำหรับสร้าง card แสดงเสื้อผ้าที่แนะนำ
+  Widget _buildSuggestedGarmentCard(
+      String category, String description, String imageUrl) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // รูปภาพเสื้อผ้า
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                imageUrl,
+                width: 80,
+                height: 80,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    width: 80,
+                    height: 80,
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            // รายละเอียดเสื้อผ้า
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    category,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF3B1E54),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.black87,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -273,54 +394,9 @@ class _MatchingResultState extends State<MatchingResult> {
                       }
                     },
                   ),
-                  SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'แนะนำเสื้อผ้าที่เข้ากัน',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF3B1E54),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        isLoadingSuggestions
-                            ? const Center(child: CircularProgressIndicator())
-                            : suggestedGarments.isEmpty
-                                ? const Center(
-                                    child: Text('ไม่มีเสื้อผ้าที่แนะนำ'))
-                                : SizedBox(
-                                    height: 120,
-                                    child: ListView.builder(
-                                      scrollDirection: Axis.horizontal,
-                                      itemCount: suggestedGarments.length,
-                                      itemBuilder: (context, index) {
-                                        final garment =
-                                            suggestedGarments[index];
-                                        return Padding(
-                                          padding:
-                                              const EdgeInsets.only(right: 8.0),
-                                          child: ClipRRect(
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                            child: Image.network(
-                                              garment['garment_image'],
-                                              width: 100,
-                                              height: 120,
-                                              fit: BoxFit.cover,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                      ],
-                    ),
-                  ),
+                  // แสดงรูปภาพแนะนำ
+                  const SizedBox(height: 36),
+                  _buildSuggestedGarments(),
                 ],
               ),
             ),

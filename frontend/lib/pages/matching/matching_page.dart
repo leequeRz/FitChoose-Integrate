@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:fitchoose/pages/matching/favorites_page.dart';
 import 'package:fitchoose/pages/matching/history_matching_page.dart';
 import 'package:fitchoose/pages/matching/matching_result.dart';
+import 'package:fitchoose/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:fitchoose/services/garment_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 
 class MatchingPage extends StatefulWidget {
   const MatchingPage({super.key});
@@ -14,6 +18,7 @@ class MatchingPage extends StatefulWidget {
 
 class _MatchingPageState extends State<MatchingPage> {
   final GarmentService _garmentService = GarmentService();
+  final ApiService _apiService = ApiService();
 
   // เพิ่มตัวแปรเก็บเสื้อผ้าที่เลือก
   Map<String, dynamic>? selectedUpperGarment;
@@ -24,6 +29,9 @@ class _MatchingPageState extends State<MatchingPage> {
   List<Map<String, dynamic>> lowerGarments = [];
   bool isLoading = false;
 
+  bool _isAnalyzing = false;
+  bool _isUpperAnalyzed = false;
+  bool _isLowerAnalyzed = false;
   String? upperCategory;
   String? lowerCategory;
 
@@ -110,32 +118,134 @@ class _MatchingPageState extends State<MatchingPage> {
   void _selectUpperGarment(Map<String, dynamic> garment) async {
     setState(() {
       selectedUpperGarment = garment;
+      _isUpperAnalyzed = false;
+      _isAnalyzing = true;
       // รีเซ็ตหมวดหมู่เพื่อรอการวิเคราะห์ใหม่
       upperCategory = null;
     });
 
-    // วิเคราะห์หมวดหมู่เสื้อผ้า
-    final category = await _classifyGarment(garment['_id'], 'upper');
-    setState(() {
-      upperCategory = category;
-    });
-    print('Upper garment classified as: $category');
+    // แสดง popup กำลังประมวลผล
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9B7EBD)),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'กำลังวิเคราะห์เสื้อผ้า...',
+                style: TextStyle(color: Color(0xFF9B7EBD)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    // วิเคราะห์เสื้อผ้า
+    try {
+      final response = await http.post(
+        Uri.parse('${_apiService.baseUrl}/classify_garment'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'garment_id': garment['_id'],
+          'garment_type': 'upper',
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          upperCategory = data['category'];
+          _isUpperAnalyzed = true;
+          _isAnalyzing = _isLowerAnalyzed ? false : _isAnalyzing;
+        });
+        print('Upper category: $upperCategory');
+      } else {
+        print('Error classifying upper garment: ${response.body}');
+      }
+    } catch (e) {
+      print('Exception classifying upper garment: $e');
+    } finally {
+      // ปิด popup
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+    }
   }
 
   // เพิ่มฟังก์ชันเปิด dialog เลือกเสื้อผ้าส่วนล่าง
   void _selectLowerGarment(Map<String, dynamic> garment) async {
     setState(() {
       selectedLowerGarment = garment;
+      _isLowerAnalyzed = false;
+      _isAnalyzing = true;
       // รีเซ็ตหมวดหมู่เพื่อรอการวิเคราะห์ใหม่
       lowerCategory = null;
     });
 
-    // วิเคราะห์หมวดหมู่เสื้อผ้า
-    final category = await _classifyGarment(garment['_id'], 'lower');
-    setState(() {
-      lowerCategory = category;
-    });
-    print('Lower garment classified as: $category');
+    // แสดง popup กำลังประมวลผล
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9B7EBD)),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'กำลังวิเคราะห์เสื้อผ้า...',
+                style: TextStyle(color: Color(0xFF9B7EBD)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    // วิเคราะห์เสื้อผ้า
+    try {
+      final response = await http.post(
+        Uri.parse('${_apiService.baseUrl}/classify_garment'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'garment_id': garment['_id'],
+          'garment_type': 'lower',
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          lowerCategory = data['category'];
+          _isLowerAnalyzed = true;
+          _isAnalyzing = _isUpperAnalyzed ? false : _isAnalyzing;
+        });
+        print('Lower category: $lowerCategory');
+      } else {
+        print('Error classifying lower garment: ${response.body}');
+      }
+    } catch (e) {
+      print('Exception classifying lower garment: $e');
+    } finally {
+      // ปิด popup
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+    }
   }
 
   // เพิ่มฟังก์ชันสำหรับแสดง dialog เลือกเสื้อผ้าส่วนบน
@@ -611,6 +721,7 @@ class _MatchingPageState extends State<MatchingPage> {
                         top: 30, bottom: 20), // เพิ่ม margin ด้านล่าง
                     width: 200,
                     height: 50, // ลดความสูงของปุ่ม
+                    //ปุ่ม matching
                     child: ElevatedButton(
                       onPressed: () async {
                         // ตรวจสอบว่ามีการเลือกเสื้อผ้าอย่างน้อย 1 ชิ้น

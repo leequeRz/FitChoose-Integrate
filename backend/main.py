@@ -29,6 +29,9 @@ from bson import ObjectId
 import json
 #classify
 from clip_classifier import load_clip_upper_model, process_clip_upper_classification, load_clip_lower_model, process_clip_lower_classification
+from fastapi.staticfiles import StaticFiles
+import os
+import random
 
  
 app = FastAPI()
@@ -46,6 +49,8 @@ SERVER_URL = "http://10.0.2.2:8000"  # สำหรับ Android Emulator
 # ให้ FastAPI เปิด folder cropped_images ให้เข้าถึงได้ทาง URL
 app.mount("/cropped_images", StaticFiles(directory="cropped_images"), name="cropped_images")
 app.mount("/virtual_tryon_results", StaticFiles(directory="virtual_tryon_results"), name="virtual_tryon_results")
+# ตั้งค่า static files สำหรับรูปภาพ
+app.mount("/static", StaticFiles(directory="cassifier_image/gender"), name="static")
 
 # Virtual Try-On
 # External Try-On API Endpoint
@@ -429,32 +434,53 @@ async def classify_garment(request: Request):
 # เพิ่ม endpoint สำหรับการแนะนำเสื้อผ้าที่เข้ากัน
 @app.get("/suggest_garments")
 async def suggest_garments(category: str, garment_type: str):
-    if not category or not garment_type:
-        raise HTTPException(status_code=400, detail="Missing category or garment_type")
-    
     try:
-        # ดึงเสื้อผ้าตามประเภทและหมวดหมู่
-        # ตัวอย่างเช่น ถ้า category = "casual" และ garment_type = "lower"
-        # จะดึงเสื้อผ้าส่วนล่างที่เป็นแบบลำลอง
+        # ตรวจสอบว่าหมวดหมู่และประเภทเสื้อผ้าถูกต้อง
+        if not category or not garment_type:
+            return {"error": "Category and garment type are required"}
         
-        # ดึงเสื้อผ้าทั้งหมดตามประเภท
-        cursor = garment_collection.find({"garment_type": garment_type})
-        garments = await cursor.to_list(length=100)
+        # กำหนดเพศ (ในตัวอย่างนี้ใช้ male เป็นค่าเริ่มต้น สามารถปรับให้รับค่าจาก parameter ได้)
+        gender = "male"
         
-        # แปลง ObjectId เป็น string
-        for garment in garments:
-            garment["_id"] = str(garment["_id"])
+        # สร้าง path ไปยังโฟลเดอร์ที่เก็บรูปภาพตามหมวดหมู่
+        image_folder = os.path.join("cassifier_image", "gender", gender, category)
         
-        # สุ่มเลือกเสื้อผ้าไม่เกิน 10 ชิ้น
-        import random
-        if len(garments) > 10:
-            garments = random.sample(garments, 10)
+        # ตรวจสอบว่าโฟลเดอร์มีอยู่จริง
+        if not os.path.exists(image_folder):
+            return {"error": f"No images found for category: {category}"}
         
-        return garments
-    
+        # ค้นหาไฟล์รูปภาพในโฟลเดอร์
+        image_files = [f for f in os.listdir(image_folder) if f.endswith(('.jpg', '.jpeg', '.png'))]
+        
+        if not image_files:
+            return {"error": f"No images found for category: {category}"}
+        
+        # เลือกรูปภาพแบบสุ่ม
+        selected_image = random.choice(image_files)
+        image_path = os.path.join(image_folder, selected_image)
+        
+        # สร้าง URL สำหรับเข้าถึงรูปภาพ
+        image_url = f"/static/{gender}/{category}/{selected_image}"
+        
+        # ข้อมูลคำอธิบายสำหรับแต่ละหมวดหมู่
+        category_descriptions = {
+            "casual": "Comfortable casual wear suitable for everyday life.",
+            "formal": "Elegant and professional attire for formal occasions.",
+            "sport": "Athletic wear designed for comfort and performance.",
+            "fashion": "Trendy and stylish clothing for fashion-forward individuals.",
+            "winter": "Warm clothing designed for cold weather conditions."
+        }
+        
+        description = category_descriptions.get(category, "")
+        
+        return {
+            "category": category,
+            "description": description,
+            "image_url": image_url
+        }
     except Exception as e:
         print(f"Error in suggest_garments: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # Mobile Application Endpoints all below
 @router.get("/")
