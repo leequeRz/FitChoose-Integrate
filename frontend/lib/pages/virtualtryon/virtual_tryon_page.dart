@@ -1,4 +1,5 @@
 import 'package:fitchoose/components/pictureselect.dart';
+import 'package:fitchoose/pages/virtualtryon/virtual_tryon_result_page.dart';
 import 'package:fitchoose/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
@@ -214,7 +215,19 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
         });
 
         // แสดงผลลัพธ์ Virtual Try-On
-        _showTryOnResult();
+        // _showTryOnResult();
+
+        // แทนที่จะเรียก _showTryOnResult() ให้นำทางไปยังหน้าใหม่
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VirtualTryOnResultPage(
+              resultImage: _tryOnResultImage!,
+              selectedGarment: _currentSelectedGarment!,
+              category: selectedCategory,
+            ),
+          ),
+        );
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Virtual Try-On สำเร็จ!')),

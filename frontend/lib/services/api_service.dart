@@ -15,11 +15,11 @@ class ApiService {
     if (Platform.isAndroid) {
       // ตรวจสอบว่าเป็น emulator หรืออุปกรณ์จริง
       const bool isPhysicalDevice =
-          false; // เปลี่ยนเป็น true ถ้าทดสอบบนอุปกรณ์จริง
+          true; // เปลี่ยนเป็น true ถ้าทดสอบบนอุปกรณ์จริง
 
       if (isPhysicalDevice) {
         //สำหรับอุปกรณ์ Android จริง - ใส่ IP address ของคอมพิวเตอร์ที่รัน backend
-        baseUrl = 'http://172.20.10.5:8000'; // เปลี่ยน IP ตามเครือข่ายของคุณ
+        baseUrl = 'http://10.44.185.131:8000'; // เปลี่ยน IP ตามเครือข่ายของคุณ
       } else {
         // สำหรับ Android Emulator
         baseUrl = 'http://10.0.2.2:8000';
@@ -27,11 +27,11 @@ class ApiService {
     } else if (Platform.isIOS) {
       // ตรวจสอบว่าเป็น simulator หรืออุปกรณ์จริง
       const bool isPhysicalDevice =
-          false; // เปลี่ยนเป็น true ถ้าทดสอบบนอุปกรณ์จริง
+          true; // เปลี่ยนเป็น true ถ้าทดสอบบนอุปกรณ์จริง
 
       if (isPhysicalDevice) {
         // สำหรับอุปกรณ์ iOS จริง - ใส่ IP address ของคอมพิวเตอร์ที่รัน backend
-        baseUrl = 'http://172.20.10.5:8000'; // เปลี่ยน IP ตามเครือข่ายของคุณ
+        baseUrl = 'http://10.44.185.131:8000'; // เปลี่ยน IP ตามเครือข่ายของคุณ
       } else {
         // สำหรับ iOS Simulator
         baseUrl = 'http://localhost:8000';

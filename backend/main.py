@@ -31,9 +31,8 @@ import json
 from clip_classifier import load_clip_upper_model, process_clip_upper_classification, load_clip_lower_model, process_clip_lower_classification
 from fastapi.staticfiles import StaticFiles
 import os
-import random
+import random 
 
- 
 app = FastAPI()
 app.task_queue = asyncio.Queue()
 
@@ -42,7 +41,7 @@ results: Dict[task_id, Any] = {}
 
 # เปลี่ยนจาก localhost:8000 เป็น IP ที่สามารถเข้าถึงได้จากอุปกรณ์มือถือ
 # ถ้าทดสอบบน emulator ให้ใช้ 10.0.2.2:8000
-SERVER_URL = "http://10.0.2.2:8000"  # สำหรับ Android Emulator
+SERVER_URL = "http://10.44.185.131:8000"  # สำหรับ Android Emulator
 # หรือใช้ IP ของเครื่องที่รัน server เช่น
 # SERVER_URL = "http://192.168.1.xxx:8000"  # แทนที่ xxx ด้วย IP จริงของเครื่อง
 
@@ -54,9 +53,9 @@ app.mount("/static", StaticFiles(directory="cassifier_image/gender"), name="stat
 
 # Virtual Try-On
 # External Try-On API Endpoint
-EXTERNAL_API_URL = "https://creating-joseph-tribune-assumption.trycloudflare.com/tryon"
+EXTERNAL_API_URL = "https://dvds-regarded-pda-ann.trycloudflare.com/tryon"
 # Folder to store result
-RESULT_DIR = "C:/Users/User/Downloads/FitChooseIntegrate/FitChooseIntegrate/backend/virtual_tryon_results"
+RESULT_DIR = "/Users/klaaeng/Development/projects/FitChooseIntegrate/backend/virtual_tryon_results"
 os.makedirs(RESULT_DIR, exist_ok=True)
 
 router = APIRouter()
@@ -174,7 +173,8 @@ async def yolorequest(a: A):
 async def tryon(
     human_img: UploadFile = File(...),
     garm_img: UploadFile = File(...),
-    category: str = Form(...)
+    category: str = Form(...),
+    # orientation: str = Form("portrait")
 ):
     try:
         # แปลงค่า category ให้ตรงกับที่ API ต้องการ
@@ -203,7 +203,7 @@ async def tryon(
                 "garm_img": ("garment.jpg", garment_file, "image/jpeg")
             }
             # ใช้ค่า category ที่แปลงแล้ว
-            data = {"category": mapped_category}
+            data = {"category": mapped_category,}
 
             response = requests.post(EXTERNAL_API_URL, files=files, data=data)
 
@@ -214,6 +214,17 @@ async def tryon(
 
             with open(result_path, "wb") as out_file:
                 out_file.write(response.content)
+
+            # หากต้องการหมุนรูปภาพ (ถ้า External API ไม่รองรับ orientation)
+            # if orientation == "portrait":
+            #     try:
+            #         from PIL import Image
+            #         img = Image.open(result_path)
+            #         # หมุนรูปภาพ 90 องศาตามเข็มนาฬิกา
+            #         img = img.rotate(-90, expand=True)
+            #         img.save(result_path)
+            #     except Exception as e:
+            #         print(f"Error rotating image: {e}")    
 
             return FileResponse(result_path, media_type="image/png", filename=os.path.basename(result_path))
         else:

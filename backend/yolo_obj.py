@@ -8,7 +8,7 @@ from pathlib import Path
 from ultralytics import YOLO
 
 #custom weights file
-model = YOLO("C:/Users/User/Downloads/FitChooseIntegrate/FitChooseIntegrate/backend/weight.model/best.pt")
+model = YOLO("/Users/klaaeng/Development/projects/FitChooseIntegrate/backend/weight.model/best.pt")
 
 # โฟลเดอร์สำหรับเก็บไฟล์ที่ Crop
 output_dir = Path("cropped_images")
