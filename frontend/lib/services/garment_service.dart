@@ -503,6 +503,7 @@ class GarmentService {
     required File humanImage,
     required String garmentImageUrl,
     required String category,
+    // String orientation = "portrait",
   }) async {
     try {
       // ส่งคำขอไปยัง API
@@ -546,6 +547,8 @@ class GarmentService {
       }
 
       request.fields['category'] = apiCategory;
+      // request.fields['orientation'] =
+      //     orientation; // เพิ่มพารามิเตอร์ orientation
 
       // ส่งคำขอและรับการตอบกลับ
       final streamedResponse = await request.send();

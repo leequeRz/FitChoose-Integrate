@@ -89,25 +89,28 @@ class ProfilePictureGuidePopup extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: isCorrect
-              ? Image.asset(
-                  'assets/images/correct_pose.png',
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Icon(
-                    Icons.person,
-                    size: 50,
-                    color: Colors.grey,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: isCorrect
+                ? Image.asset(
+                    'assets/images/good_profile.jpg',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.person,
+                      size: 50,
+                      color: Colors.grey,
+                    ),
+                  )
+                : Image.asset(
+                    'assets/images/bad_profile.jpg',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.person_off,
+                      size: 50,
+                      color: Colors.grey,
+                    ),
                   ),
-                )
-              : Image.asset(
-                  'assets/images/incorrect_pose.png',
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Icon(
-                    Icons.person_off,
-                    size: 50,
-                    color: Colors.grey,
-                  ),
-                ),
+          ),
         ),
       ],
     );
