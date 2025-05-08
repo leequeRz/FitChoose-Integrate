@@ -156,7 +156,13 @@ class _WardropeDressState extends State<WardropeDress> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dress'),
+        title: const Text(
+          'Dress',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF3B1E54),
+          ),
+        ),
         backgroundColor: const Color(0xFFF5F0FF),
         actions: [
           // เพิ่มปุ่มลบที่มุมขวาบน

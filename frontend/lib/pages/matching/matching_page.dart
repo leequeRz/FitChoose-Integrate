@@ -274,11 +274,11 @@ class _MatchingPageState extends State<MatchingPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'เลือกเสื้อผ้าส่วนบน',
+                    'Select your upper garments',
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF3B1E54)),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -338,18 +338,18 @@ class _MatchingPageState extends State<MatchingPage> {
                                         ),
                                       ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Text(
-                                        garment['garment_name'] ?? 'ไม่มีชื่อ',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
+                                    // Padding(
+                                    //   padding: const EdgeInsets.all(8.0),
+                                    //   child: Text(
+                                    //     garment['garment_name'] ?? 'ไม่มีชื่อ',
+                                    //     style: const TextStyle(
+                                    //       fontSize: 14,
+                                    //       fontWeight: FontWeight.bold,
+                                    //     ),
+                                    //     maxLines: 1,
+                                    //     overflow: TextOverflow.ellipsis,
+                                    //   ),
+                                    // ),
                                   ],
                                 ),
                               ),
@@ -389,10 +389,11 @@ class _MatchingPageState extends State<MatchingPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'เลือกเสื้อผ้าส่วนล่าง',
+                    'Select your lower garments',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: Color(0xFF3B1E54),
                     ),
                   ),
                   IconButton(
@@ -453,18 +454,18 @@ class _MatchingPageState extends State<MatchingPage> {
                                         ),
                                       ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Text(
-                                        garment['garment_name'] ?? 'ไม่มีชื่อ',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
+                                    // Padding(
+                                    //   padding: const EdgeInsets.all(8.0),
+                                    //   child: Text(
+                                    //     garment['garment_name'] ?? 'ไม่มีชื่อ',
+                                    //     style: const TextStyle(
+                                    //       fontSize: 14,
+                                    //       fontWeight: FontWeight.bold,
+                                    //     ),
+                                    //     maxLines: 1,
+                                    //     overflow: TextOverflow.ellipsis,
+                                    //   ),
+                                    // ),
                                   ],
                                 ),
                               ),

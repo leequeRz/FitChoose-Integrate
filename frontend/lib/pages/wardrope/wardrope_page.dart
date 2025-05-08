@@ -74,38 +74,6 @@ class _WardropePageState extends State<WardropePage> {
     }
   }
 
-  // แสดงกล่องโต้ตอบเพื่อเลือกประเภทเสื้อผ้า
-  Future<String?> _showGarmentTypeDialog() async {
-    return showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Select Garment Type'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.accessibility_new),
-                title: const Text('Upper-Body'),
-                onTap: () => Navigator.pop(context, 'upper'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.accessibility),
-                title: const Text('Lower-Body'),
-                onTap: () => Navigator.pop(context, 'lower'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.accessibility_outlined),
-                title: const Text('Dress'),
-                onTap: () => Navigator.pop(context, 'dress'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
 // ถ่ายภาพและอัปโหลดโดยใช้ YOLO
   Future<void> _takePhoto() async {
     final XFile? photo = await _picker.pickImage(
@@ -151,7 +119,7 @@ class _WardropePageState extends State<WardropePage> {
             children: [
               CircularProgressIndicator(),
               SizedBox(height: 16),
-              Text('กำลังวิเคราะห์รูปภาพ...')
+              Text('Analyzing image...')
             ],
           ),
         ),
@@ -170,34 +138,35 @@ class _WardropePageState extends State<WardropePage> {
 
         if (detections.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ไม่พบเสื้อผ้าในรูปภาพ')),
+            const SnackBar(content: Text('Not found image')),
           );
           return;
         }
 
         // บันทึกเสื้อผ้าที่ตรวจจับได้
-        final savedTypes = await _garmentService.saveDetectedGarments(detections);
+        final savedTypes =
+            await _garmentService.saveDetectedGarments(detections);
         print('Saved types: $savedTypes');
 
         if (savedTypes.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
                 content:
-                    Text('บันทึกเสื้อผ้าสำเร็จ: ${savedTypes.join(", ")}')),
+                    Text('Image saved successfully: ${savedTypes.join(", ")}')),
           );
 
           // รีเฟรชหน้าจอเพื่อแสดงเสื้อผ้าใหม่
           await _loadGarmentCounts();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ไม่สามารถบันทึกเสื้อผ้าได้')),
+            const SnackBar(content: Text('Failed to save clothing')),
           );
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(
-                  'เกิดข้อผิดพลาด: ${result['message'] ?? "Unknown error"}')),
+                  'Something went wrong: ${result['message'] ?? "Unknown error"}')),
         );
       }
     } catch (e) {
@@ -209,54 +178,7 @@ class _WardropePageState extends State<WardropePage> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
-      );
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-
-  // อัปโหลดรูปภาพไปยัง Firebase Storage และบันทึกข้อมูลใน MongoDB
-  Future<void> _uploadImage(File imageFile, String garmentType) async {
-    setState(() {
-      isLoading = true;
-    });
-
-    try {
-      // อัปโหลดรูปภาพไปยัง Firebase Storage
-      final imageUrl =
-          await _garmentService.uploadGarmentImage(imageFile, garmentType);
-
-      if (imageUrl != null) {
-        // บันทึกข้อมูลใน MongoDB
-        final success = await _garmentService.addGarment(
-          garmentType: garmentType,
-          garmentImage: imageUrl,
-        );
-
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Garment added successfully')),
-          );
-
-          // โหลดจำนวนเสื้อผ้าใหม่
-          await _loadGarmentCounts();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to add garment')),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to upload image')),
-        );
-      }
-    } catch (e) {
-      print('Error uploading image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
+        SnackBar(content: Text('Something went wrong: $e')),
       );
     } finally {
       setState(() {

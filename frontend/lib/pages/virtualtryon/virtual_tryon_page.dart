@@ -30,6 +30,7 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
   // เพิ่มตัวแปรสำหรับเก็บผลลัพธ์ Virtual Try-On
   File? _tryOnResultImage;
   bool _isProcessing = false;
+  Map<String, dynamic>? _currentSelectedGarment; // เพิ่มตัวแปรนี้
 
   // เปลี่ยนโครงสร้างข้อมูลเพื่อรองรับข้อมูลจาก API
   final Map<String, List<Map<String, dynamic>>> clothingItems = {
@@ -193,7 +194,12 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
         setState(() {
           _tryOnResultImage = File(resultPath);
           _isProcessing = false;
+          _currentSelectedGarment =
+              selectedGarment; // เก็บข้อมูลเสื้อผ้าที่เลือก
         });
+
+        // แสดงผลลัพธ์ Virtual Try-On
+        _showTryOnResult();
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Virtual Try-On สำเร็จ!')),
@@ -236,6 +242,79 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
                 ),
               ),
             ),
+            if (_currentSelectedGarment != null) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        _currentSelectedGarment!['garment_image'] ?? '',
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
+                                  : null,
+                              color: Color(0xFF9B7EBD),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Icon(
+                              Icons.error_outline,
+                              color: Colors.red,
+                              size: 32,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'เสื้อผ้าที่เลือก:',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF3B1E54),
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            _currentSelectedGarment!['garment_name'] ??
+                                'ไม่มีชื่อ',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF9B7EBD),
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'ประเภท: ${selectedCategory}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF9B7EBD),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16),
+            ],
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.file(
@@ -301,6 +380,15 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
                       backgroundColor: Color(0xFF3B1E54),
                     ),
                     child: Text('บันทึก'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF9B7EBD),
+                    ),
+                    child: Text('ปิด'),
                   ),
                 ],
               ),

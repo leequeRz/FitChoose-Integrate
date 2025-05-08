@@ -261,6 +261,7 @@ class _HistoryMatchingPageState extends State<HistoryMatchingPage> {
                                 ),
                                 const SizedBox(height: 12),
                                 Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     // ส่วนแสดงรูปเสื้อผ้าส่วนบน (ถ้ามี)
                                     if (matching['garment_top'] != null)
@@ -281,20 +282,29 @@ class _HistoryMatchingPageState extends State<HistoryMatchingPage> {
                                           }
                                           if (snapshot.hasData &&
                                               snapshot.data != null) {
-                                            return ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              child: Image.network(
-                                                snapshot.data!['garment_image'],
-                                                width: 80,
-                                                height: 80,
-                                                fit: BoxFit.fill,
-                                                errorBuilder: (context, error,
-                                                        stackTrace) =>
-                                                    const Icon(
-                                                  Icons.broken_image,
-                                                  size: 40,
-                                                  color: Colors.grey,
+                                            return Container(
+                                              width: 80,
+                                              height: 80,
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                child: Image.network(
+                                                  snapshot
+                                                      .data!['garment_image'],
+                                                  width: 80,
+                                                  height: 80,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error,
+                                                          stackTrace) =>
+                                                      const Icon(
+                                                    Icons.broken_image,
+                                                    size: 40,
+                                                    color: Colors.grey,
+                                                  ),
                                                 ),
                                               ),
                                             );
@@ -309,7 +319,7 @@ class _HistoryMatchingPageState extends State<HistoryMatchingPage> {
                                           );
                                         },
                                       ),
-                                    const SizedBox(width: 12),
+                                    // const SizedBox(width: 12),
                                     // ส่วนแสดงรูปเสื้อผ้าส่วนล่าง (ถ้ามี)
                                     if (matching['garment_bottom'] != null)
                                       FutureBuilder<Map<String, dynamic>?>(
@@ -329,20 +339,29 @@ class _HistoryMatchingPageState extends State<HistoryMatchingPage> {
                                           }
                                           if (snapshot.hasData &&
                                               snapshot.data != null) {
-                                            return ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              child: Image.network(
-                                                snapshot.data!['garment_image'],
-                                                width: 80,
-                                                height: 80,
-                                                fit: BoxFit.fill,
-                                                errorBuilder: (context, error,
-                                                        stackTrace) =>
-                                                    const Icon(
-                                                  Icons.broken_image,
-                                                  size: 40,
-                                                  color: Colors.grey,
+                                            return Container(
+                                              width: 80,
+                                              height: 80,
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                child: Image.network(
+                                                  snapshot
+                                                      .data!['garment_image'],
+                                                  width: 80,
+                                                  height: 80,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error,
+                                                          stackTrace) =>
+                                                      const Icon(
+                                                    Icons.broken_image,
+                                                    size: 40,
+                                                    color: Colors.grey,
+                                                  ),
                                                 ),
                                               ),
                                             );

@@ -156,7 +156,13 @@ class _WardropeLowerState extends State<WardropeLower> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lower-Body'),
+        title: const Text(
+          'Lower-Body',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF3B1E54),
+          ),
+        ),
         backgroundColor: const Color(0xFFF5F0FF),
         actions: [
           // เพิ่มปุ่มลบที่มุมขวาบน

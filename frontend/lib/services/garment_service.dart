@@ -468,11 +468,11 @@ class GarmentService {
               // แปลงประเภทเสื้อผ้าเป็นภาษาไทยสำหรับการแสดงผล
               String displayType = '';
               if (garmentType == 'upper') {
-                displayType = 'เสื้อ';
+                displayType = 'Upper';
               } else if (garmentType == 'lower') {
-                displayType = 'กางเกง/กระโปรง';
+                displayType = 'Lower';
               } else if (garmentType == 'dress') {
-                displayType = 'ชุดเดรส';
+                displayType = 'Dress';
               } else {
                 displayType = garmentType;
               }

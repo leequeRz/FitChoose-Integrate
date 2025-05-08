@@ -353,7 +353,6 @@ async def classify_image(file: UploadFile = File(...)):
         await asyncio.sleep(0.2)
 
 # เพิ่ม endpoint สำหรับการวิเคราะห์หมวดหมู่เสื้อผ้า
-# เพิ่ม endpoint สำหรับการวิเคราะห์หมวดหมู่เสื้อผ้า
 @app.post("/classify_garment")
 async def classify_garment(request: Request):
     data = await request.json()
@@ -464,11 +463,11 @@ async def suggest_garments(category: str, garment_type: str, selected_type: str 
         
         # ข้อมูลคำอธิบายสำหรับแต่ละหมวดหมู่
         category_descriptions = {
-            "casual": "Comfortable casual wear suitable for everyday life.",
-            "formal": "Elegant and professional attire for formal occasions.",
-            "sport": "Athletic wear designed for comfort and performance.",
-            "fashion": "Trendy and stylish clothing for fashion-forward individuals.",
-            "winter": "Warm clothing designed for cold weather conditions."
+            "Casual": "Comfortable casual wear suitable for everyday life.",
+            "Formal": "Elegant and professional attire for formal occasions.",
+            "Sport": "Athletic wear designed for comfort and performance.",
+            "Fashion": "Trendy and stylish clothing for fashion-forward individuals.",
+            "Winter": "Warm clothing designed for cold weather conditions."
         }
         
         description = category_descriptions.get(category, "")

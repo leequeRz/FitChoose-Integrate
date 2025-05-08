@@ -167,7 +167,7 @@ class _HistoryVirtualTryOnPageState extends State<HistoryVirtualTryOnPage> {
           : virtualTryOnHistory.isEmpty
               ? const Center(
                   child: Text(
-                    'ยังไม่มีประวัติการลองเสื้อผ้าเสมือนจริง',
+                    'No virtual try-on history found',
                     style: TextStyle(
                       fontSize: 16,
                       color: Color(0xFF3B1E54),

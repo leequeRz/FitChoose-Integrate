@@ -156,7 +156,13 @@ class _WardropeUpperState extends State<WardropeUpper> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Upper-Body'),
+        title: const Text(
+          'Upper-Body',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF3B1E54),
+          ),
+        ),
         backgroundColor: const Color(0xFFF5F0FF),
         actions: [
           // เพิ่มปุ่มลบที่มุมขวาบน
