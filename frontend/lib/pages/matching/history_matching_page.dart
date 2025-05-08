@@ -282,31 +282,46 @@ class _HistoryMatchingPageState extends State<HistoryMatchingPage> {
                                           }
                                           if (snapshot.hasData &&
                                               snapshot.data != null) {
-                                            return Container(
-                                              width: 80,
-                                              height: 80,
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: Image.network(
-                                                  snapshot
-                                                      .data!['garment_image'],
+                                            return Column(
+                                              children: [
+                                                Container(
                                                   width: 80,
                                                   height: 80,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error,
-                                                          stackTrace) =>
-                                                      const Icon(
-                                                    Icons.broken_image,
-                                                    size: 40,
-                                                    color: Colors.grey,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                  child: ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                    child: Image.network(
+                                                      snapshot.data![
+                                                          'garment_image'],
+                                                      width: 80,
+                                                      height: 80,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context,
+                                                              error,
+                                                              stackTrace) =>
+                                                          const Icon(
+                                                        Icons.broken_image,
+                                                        size: 40,
+                                                        color: Colors.grey,
+                                                      ),
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
+                                                const SizedBox(height: 4),
+                                                const Text(
+                                                  '(Upper)',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF3B1E54),
+                                                  ),
+                                                ),
+                                              ],
                                             );
                                           }
                                           return const SizedBox(
@@ -319,7 +334,7 @@ class _HistoryMatchingPageState extends State<HistoryMatchingPage> {
                                           );
                                         },
                                       ),
-                                    // const SizedBox(width: 12),
+                                    const SizedBox(width: 12),
                                     // ส่วนแสดงรูปเสื้อผ้าส่วนล่าง (ถ้ามี)
                                     if (matching['garment_bottom'] != null)
                                       FutureBuilder<Map<String, dynamic>?>(
@@ -339,31 +354,46 @@ class _HistoryMatchingPageState extends State<HistoryMatchingPage> {
                                           }
                                           if (snapshot.hasData &&
                                               snapshot.data != null) {
-                                            return Container(
-                                              width: 80,
-                                              height: 80,
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: Image.network(
-                                                  snapshot
-                                                      .data!['garment_image'],
+                                            return Column(
+                                              children: [
+                                                Container(
                                                   width: 80,
                                                   height: 80,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error,
-                                                          stackTrace) =>
-                                                      const Icon(
-                                                    Icons.broken_image,
-                                                    size: 40,
-                                                    color: Colors.grey,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                  child: ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                    child: Image.network(
+                                                      snapshot.data![
+                                                          'garment_image'],
+                                                      width: 80,
+                                                      height: 80,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context,
+                                                              error,
+                                                              stackTrace) =>
+                                                          const Icon(
+                                                        Icons.broken_image,
+                                                        size: 40,
+                                                        color: Colors.grey,
+                                                      ),
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
+                                                const SizedBox(height: 4),
+                                                const Text(
+                                                  '(Lower)',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF3B1E54),
+                                                  ),
+                                                ),
+                                              ],
                                             );
                                           }
                                           return const SizedBox(
@@ -376,6 +406,74 @@ class _HistoryMatchingPageState extends State<HistoryMatchingPage> {
                                           );
                                         },
                                       ),
+                                    const SizedBox(width: 16),
+                                    // เพิ่มส่วนแสดงรายละเอียดของหมวดหม่ (ส่วนที่อยู่ในกรอบสีแดง)
+                                    Expanded(
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFE6D9F2),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            // แสดงประเภทเสื้อผ้า
+                                            Row(
+                                              children: [
+                                                const Text(
+                                                  'Type: ',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF3B1E54),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  matching['garment_top'] !=
+                                                              null &&
+                                                          matching[
+                                                                  'garment_bottom'] !=
+                                                              null
+                                                      ? 'Full body'
+                                                      : matching['garment_top'] !=
+                                                              null
+                                                          ? 'Upper'
+                                                          : 'Lower',
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    color: Color(0xFF666666),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            // แสดงรายละเอียด
+                                            const Text(
+                                              'Detail:',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF3B1E54),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              matching['matching_detail'] ??
+                                                  'ไม่มีรายละเอียด',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Color(0xFF666666),
+                                              ),
+                                              maxLines: 3,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ],

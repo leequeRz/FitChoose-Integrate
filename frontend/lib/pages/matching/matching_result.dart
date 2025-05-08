@@ -89,7 +89,7 @@ class _MatchingResultState extends State<MatchingResult> {
     try {
       // ตรวจสอบว่ามีหมวดหมู่ที่ได้รับการวิเคราะห์แล้ว
       if (widget.matchingResult != null && widget.matchingResult!.isNotEmpty) {
-        final style = widget.matchingResult!.split(' ')[0].toLowerCase();
+        final style = widget.matchingResult!.split(' ')[0];
 
         // ตรวจสอบว่ามีการเลือกเสื้อผ้าส่วนบนหรือส่วนล่าง
         String selectedType = "";
@@ -196,7 +196,7 @@ class _MatchingResultState extends State<MatchingResult> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'แนะนำเสื้อผ้าที่เข้ากัน',
+          'Mix-and-match outfit suggestion',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -221,7 +221,7 @@ class _MatchingResultState extends State<MatchingResult> {
             },
           )
         else
-          const Center(child: Text('ไม่มีรูปภาพแนะนำ')),
+          const Center(child: Text('No recommended images')),
       ],
     );
   }
