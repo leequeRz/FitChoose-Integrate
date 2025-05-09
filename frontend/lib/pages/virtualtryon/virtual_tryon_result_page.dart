@@ -19,7 +19,7 @@ class VirtualTryOnResultPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('ผลลัพธ์ Virtual Try-On'),
+        title: Text('Result Virtual Try-On'),
         backgroundColor: Color(0xFF3B1E54),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -53,7 +53,8 @@ class VirtualTryOnResultPage extends StatelessWidget {
                               if (loadingProgress == null) return child;
                               return Center(
                                 child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes != null
+                                  value: loadingProgress.expectedTotalBytes !=
+                                          null
                                       ? loadingProgress.cumulativeBytesLoaded /
                                           loadingProgress.expectedTotalBytes!
                                       : null,
@@ -78,7 +79,7 @@ class VirtualTryOnResultPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'เสื้อผ้าที่เลือก:',
+                                'Your Garment:',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -86,16 +87,16 @@ class VirtualTryOnResultPage extends StatelessWidget {
                                 ),
                               ),
                               SizedBox(height: 8),
-                              Text(
-                                selectedGarment['garment_name'] ?? 'ไม่มีชื่อ',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Color(0xFF9B7EBD),
-                                ),
-                              ),
+                              // Text(
+                              //   selectedGarment['garment_name'] ?? 'ไม่มีชื่อ',
+                              //   style: TextStyle(
+                              //     fontSize: 16,
+                              //     color: Color(0xFF9B7EBD),
+                              //   ),
+                              // ),
                               SizedBox(height: 4),
                               Text(
-                                'ประเภท: $category',
+                                'Type: $category',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Color(0xFF9B7EBD),
@@ -108,21 +109,21 @@ class VirtualTryOnResultPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                
+
                 SizedBox(height: 24),
-                
+
                 // ส่วนแสดงผลลัพธ์
                 Text(
-                  'ผลลัพธ์การลองเสื้อผ้าเสมือนจริง',
+                  'This is the result:',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF3B1E54),
                   ),
                 ),
-                
+
                 SizedBox(height: 16),
-                
+
                 // แสดงรูปภาพผลลัพธ์
                 Center(
                   child: Container(
@@ -149,22 +150,25 @@ class VirtualTryOnResultPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                
+
                 SizedBox(height: 24),
-                
+
                 // ปุ่มบันทึกรูปภาพ
                 Center(
                   child: ElevatedButton.icon(
                     onPressed: () async {
                       try {
                         // อ่านไฟล์เป็น bytes
-                        final Uint8List imageBytes = await resultImage.readAsBytes();
+                        final Uint8List imageBytes =
+                            await resultImage.readAsBytes();
 
                         // สร้างชื่อไฟล์ด้วยเวลาปัจจุบัน
-                        final String fileName = 'virtual_tryon_${DateTime.now().millisecondsSinceEpoch}.png';
+                        final String fileName =
+                            'virtual_tryon_${DateTime.now().millisecondsSinceEpoch}.png';
 
                         // ดึง directory สำหรับบันทึกรูปภาพ
-                        final Directory pictureDir = await getApplicationDocumentsDirectory();
+                        final Directory pictureDir =
+                            await getApplicationDocumentsDirectory();
                         final String filePath = '${pictureDir.path}/$fileName';
 
                         // บันทึกไฟล์
@@ -181,7 +185,8 @@ class VirtualTryOnResultPage extends StatelessWidget {
                         // แสดงข้อความแนะนำเพิ่มเติม
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('หมายเหตุ: รูปภาพถูกบันทึกในพื้นที่แอปพลิเคชัน ไม่ได้บันทึกในแกลเลอรี่'),
+                            content: Text(
+                                'หมายเหตุ: รูปภาพถูกบันทึกในพื้นที่แอปพลิเคชัน ไม่ได้บันทึกในแกลเลอรี่'),
                             backgroundColor: Colors.blue,
                             duration: Duration(seconds: 5),
                           ),
@@ -190,7 +195,8 @@ class VirtualTryOnResultPage extends StatelessWidget {
                         print('Error saving image: $e');
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('เกิดข้อผิดพลาดในการบันทึกรูปภาพ: $e'),
+                            content:
+                                Text('เกิดข้อผิดพลาดในการบันทึกรูปภาพ: $e'),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -198,14 +204,15 @@ class VirtualTryOnResultPage extends StatelessWidget {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Color(0xFF3B1E54),
-                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     icon: Icon(Icons.save_alt),
                     label: Text(
-                      'บันทึกรูปภาพ',
+                      'Save image',
                       style: TextStyle(fontSize: 16),
                     ),
                   ),

@@ -3,6 +3,10 @@ import 'package:fitchoose/services/garment_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:fitchoose/pages/virtualtryon/virtual_tryon_result_page.dart';
 
 class HistoryVirtualTryOnPage extends StatefulWidget {
   const HistoryVirtualTryOnPage({Key? key}) : super(key: key);
@@ -21,6 +25,103 @@ class _HistoryVirtualTryOnPageState extends State<HistoryVirtualTryOnPage> {
   void initState() {
     super.initState();
     _loadVirtualTryOnHistory();
+  }
+
+  // เพิ่มฟังก์ชันสำหรับดูผลลัพธ์ Virtual Try-On ในหน้าประวัติ
+  // จากปัญหาที่คุณพบว่าเมื่อกดดูประวัติ Virtual Try-On ไม่ว่าจะกดที่ประวัติอันไหนก็จะแสดงผลลัพธ์เป็นรูปเดียวกันทั้งหมด ผมวเคราะห์สาเหตุและวิธีแก้ไขดังนี้
+  //
+  // ## สาเหตุของปัญหา
+  //
+  // จากโค้ดที่ได้เพิ่มไปก่อนหน้านี้ในไฟล์ `history_virtual_try_on_page.dart` มีความเป็นไปได้ว่าเกิดจากสาเหตุดังนี้:
+  //
+  // 1. **การตั้งชื่อไฟล์ชั่วคราวซ้ำกัน**: เมื่อดาวน์โหลดรูปภาพจาก URL มาเก็บเป็นไฟล์ชั่วคราว เราใช้ชื่อไฟล์เดียวกันทุกครั้ง (`temp_tryon_result.png`) ทำให้ไฟล์ถูกเขียนทับกัน
+  //
+  // 2. **การแคชรูปภาพ**: Flutter อาจจะแคชรูปภาพที่โหลดมาแล้ว ทำให้แสดงรูปเดิมแม้ว่า URL จะเปลี่ยนไป
+  //
+  // ## วิธีแก้ไข
+  //
+  // เราจะแก้ไขฟังก์ชัน `_viewVirtualTryOnResult` ในไฟล์ `history_virtual_try_on_page.dart` ดังนี้:
+  Future<void> _viewVirtualTryOnResult(
+      Map<String, dynamic> virtualTryOn) async {
+    try {
+      setState(() {
+        isLoading = true;
+      });
+
+      final resultImageUrl = virtualTryOn['result_image'];
+      final garmentId = virtualTryOn['garment_id'];
+      final timestamp = DateTime.now()
+          .millisecondsSinceEpoch; // เพิ่มตัวแปรเวลาเพื่อป้องกันการแคช
+
+      if (resultImageUrl == null || resultImageUrl.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ไม่พบรูปภาพผลลัพธ์'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+
+      // ดาวน์โหลดรูปภาพจาก URL
+      final response = await http.get(Uri.parse(resultImageUrl +
+          '?t=$timestamp')); // เพิ่มพารามิเตอร์เวลาเพื่อป้องกันการแคช
+      if (response.statusCode != 200) {
+        throw Exception('ไม่สามารถดาวน์โหลดรูปภาพได้');
+      }
+
+      // สร้างไฟล์ชั่วคราวสำหรับเก็บรูปภาพ โดยใช้ชื่อไฟล์ที่ไม่ซ้ำกัน
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File(
+          '${tempDir.path}/temp_tryon_result_${virtualTryOn['id'] ?? timestamp}.png');
+      await tempFile.writeAsBytes(response.bodyBytes);
+
+      // ดึงข้อมูลเสื้อผ้า
+      final garment = await _garmentService.getGarmentById(garmentId);
+      if (garment == null) {
+        throw Exception('ไม่พบข้อมูลเสื้อผ้า');
+      }
+
+      // กำหนดประเภทเสื้อผ้า
+      String category = 'Unknown';
+      if (garment['garment_type'] == 'upper') {
+        category = 'Upper-Body';
+      } else if (garment['garment_type'] == 'lower') {
+        category = 'Lower-Body';
+      } else if (garment['garment_type'] == 'dress') {
+        category = 'Dress';
+      }
+
+      setState(() {
+        isLoading = false;
+      });
+
+      // นำทางไปยังหน้าผลลัพธ์
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VirtualTryOnResultPage(
+            resultImage: tempFile,
+            selectedGarment: garment,
+            category: category,
+          ),
+        ),
+      );
+    } catch (e) {
+      print('Error viewing Virtual Try-On result: $e');
+      setState(() {
+        isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาด: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // ฟังก์ชันสำหรับลบประวัติ Virtual Try-On
@@ -278,28 +379,33 @@ class _HistoryVirtualTryOnPageState extends State<HistoryVirtualTryOnPage> {
                                 // แสดงรูปภาพผลลัพธ์ virtual try-on
                                 if (resultImage != null)
                                   Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.network(
-                                        resultImage,
-                                        width: 120,
-                                        height: 160,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                          print('Error loading image: $error');
-                                          return Container(
-                                            width: 120,
-                                            height: 160,
-                                            color: Colors.grey.shade200,
-                                            child: Center(
-                                              child: Icon(
-                                                Icons.broken_image,
-                                                color: Colors.grey,
+                                    child: GestureDetector(
+                                      onTap: () =>
+                                          _viewVirtualTryOnResult(virtualTryOn),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          resultImage,
+                                          width: 120,
+                                          height: 160,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                            print(
+                                                'Error loading image: $error');
+                                            return Container(
+                                              width: 120,
+                                              height: 160,
+                                              color: Colors.grey.shade200,
+                                              child: Center(
+                                                child: Icon(
+                                                  Icons.broken_image,
+                                                  color: Colors.grey,
+                                                ),
                                               ),
-                                            ),
-                                          );
-                                        },
+                                            );
+                                          },
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -309,6 +415,18 @@ class _HistoryVirtualTryOnPageState extends State<HistoryVirtualTryOnPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
+                                // เพิ่มปุ่มดูผลลัพธ์
+                                TextButton.icon(
+                                  onPressed: () =>
+                                      _viewVirtualTryOnResult(virtualTryOn),
+                                  icon: const Icon(Icons.visibility,
+                                      color: Color(0xFF3B1E54)),
+                                  label: const Text(
+                                    'Show Result',
+                                    style: TextStyle(color: Color(0xFF3B1E54)),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
                                 // ปุ่มลบประวัติ
                                 IconButton(
                                   icon: const Icon(Icons.delete,
