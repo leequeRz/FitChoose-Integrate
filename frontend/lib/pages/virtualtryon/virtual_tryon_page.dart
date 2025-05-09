@@ -340,181 +340,177 @@ class _VirtualTryOnPageState extends State<VirtualTryOnPage>
       focusNode: _focusNode,
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F0FF), // Light purple background
-        body: SafeArea(
-          child: RefreshIndicator(
-            onRefresh: () async {
-              // เรียกใช้ฟังก์ชันโหลดข้อมูลใหม่
-              await _loadUserProfile();
-              await _loadGarments();
-            },
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Stack(
-                children: [
+        body: Stack(
+          children: [
+            SafeArea(
+              child:
                   // เนื้อหาหลัก
                   Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              // ส่วนหัวข้อด้านซ้าย
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
-                                    Text(
-                                      'Virtual Try-on',
-                                      style: TextStyle(
-                                        fontSize: 32, // ลดขนาดจาก 32
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF3B1E54), // Deep purple
-                                      ),
+                padding: const EdgeInsets.all(24.0),
+                child: RefreshIndicator(
+                  onRefresh: _refreshData,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // ส่วนหัวข้อด้านซ้าย
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: const [
+                                  Text(
+                                    'Virtual Try-on',
+                                    style: TextStyle(
+                                      fontSize: 32, // ลดขนาดจาก 32
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF3B1E54), // Deep purple
                                     ),
-                                    Text(
-                                      'Customize your outfit effortlessly',
-                                      style: TextStyle(
-                                        fontSize: 16, // ลดขนาดจาก 18
-                                        color:
-                                            Color(0xFF9B7EBD), // Medium purple
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // ปุ่มด้านขวา - ใช้รูปแบบเดียวกับหน้า Matching
-                              Row(
-                                children: [
-                                  ElevatedButton.icon(
-                                    icon: Icon(
-                                      Icons.history_rounded,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
-                                    label: Text(
-                                      'History',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Color(0xFF9B7EBD),
-                                      foregroundColor: Colors.white,
-                                      elevation: 2,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 8,
-                                      ),
-                                    ),
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const HistoryVirtualTryOnPage(),
-                                        ),
-                                      );
-                                    },
                                   ),
-                                  SizedBox(width: 8),
+                                  Text(
+                                    'Customize your outfit effortlessly',
+                                    style: TextStyle(
+                                      fontSize: 16, // ลดขนาดจาก 18
+                                      color: Color(0xFF9B7EBD), // Medium purple
+                                    ),
+                                  ),
                                 ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          Center(
-                            child: PictureSelect(
-                              imageUrl: imageUrl ?? 'assets/images/test.png',
-                              width: 230,
-                              height: 300,
                             ),
-                          ),
-                          SizedBox(height: 24),
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
+                            // ปุ่มด้านขวา - ใช้รูปแบบเดียวกับหน้า Matching
+                            Row(
                               children: [
-                                for (String category in [
-                                  'Upper-Body',
-                                  'Lower-Body',
-                                  'Dress'
-                                ])
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 12),
-                                    child: CategoryButton(
-                                      text: category,
-                                      isSelected: selectedCategory == category,
-                                      onTap: () {
-                                        setState(() {
-                                          selectedCategory = category;
-                                        });
-                                      },
+                                ElevatedButton.icon(
+                                  icon: Icon(
+                                    Icons.history_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                  label: Text(
+                                    'History',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 24),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                selectedCategory,
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF3B1E54),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Color(0xFF9B7EBD),
+                                    foregroundColor: Colors.white,
+                                    elevation: 2,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const HistoryVirtualTryOnPage(),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              ),
-                              SizedBox(height: 25),
-                              isLoading
-                                  ? const Center(
-                                      child: CircularProgressIndicator(
-                                          color: Color(0xFF9B7EBD)))
-                                  : _buildClothingGrid(),
-                            ],
-                          ),
-                          SizedBox(height: 25)
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // แสดงตัวบ่งชี้การประมวลผลเมื่อกำลังทำ Virtual Try-On
-                  if (_isProcessing)
-                    Container(
-                      color: Colors.black.withOpacity(0.5),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(
-                              color: Colors.white,
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'กำลังประมวลผล Virtual Try-On...',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                                SizedBox(width: 8),
+                              ],
                             ),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 24),
+                        Center(
+                          child: PictureSelect(
+                            imageUrl: imageUrl ?? 'assets/images/test.png',
+                            width: 230,
+                            height: 300,
+                          ),
+                        ),
+                        SizedBox(height: 24),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              for (String category in [
+                                'Upper-Body',
+                                'Lower-Body',
+                                'Dress'
+                              ])
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 12),
+                                  child: CategoryButton(
+                                    text: category,
+                                    isSelected: selectedCategory == category,
+                                    onTap: () {
+                                      setState(() {
+                                        selectedCategory = category;
+                                      });
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 24),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              selectedCategory,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF3B1E54),
+                              ),
+                            ),
+                            SizedBox(height: 25),
+                            isLoading
+                                ? const Center(
+                                    child: CircularProgressIndicator(
+                                        color: Color(0xFF9B7EBD)))
+                                : _buildClothingGrid(),
+                          ],
+                        ),
+                        SizedBox(height: 25)
+                      ],
                     ),
-                ],
+                  ),
+                ),
               ),
             ),
-          ),
+
+            // แสดงตัวบ่งชี้การประมวลผลเมื่อกำลังทำ Virtual Try-On
+            if (_isProcessing)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withOpacity(0.5),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(
+                          color: Colors.white,
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'กำลังประมวลผล Virtual Try-On...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

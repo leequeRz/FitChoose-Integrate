@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import 'dart:typed_data';
-import 'package:path_provider/path_provider.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class VirtualTryOnResultPage extends StatefulWidget {
   final File resultImage;
@@ -22,80 +18,6 @@ class VirtualTryOnResultPage extends StatefulWidget {
 }
 
 class _VirtualTryOnResultPageState extends State<VirtualTryOnResultPage> {
-  Future<void> _saveImage() async {
-    try {
-      // ขอสิทธิ์การเข้าถึงพื้นที่จัดเก็บ - การบันทึกรูปภาพลงในแกลเลอรี่
-      PermissionStatus status;
-
-      if (Platform.isAndroid) {
-        // สำหรับ Android
-        if (await Permission.storage.isGranted) {
-          status = PermissionStatus.granted;
-        } else {
-          status = await Permission.storage.request();
-        }
-      } else if (Platform.isIOS) {
-        // สำหรับ iOS
-        if (await Permission.photos.isGranted) {
-          status = PermissionStatus.granted;
-        } else {
-          status = await Permission.photos.request();
-        }
-      } else {
-        throw Exception('ไม่รองรับแพลตฟอร์มนี้');
-      }
-
-      if (status.isGranted) {
-        // อ่านไฟล์เป็น bytes
-        final bytes = await widget.resultImage.readAsBytes();
-
-        // บันทึกลงในแกลเลอรี่
-        final result = await ImageGallerySaver.saveImage(bytes,
-            quality: 100,
-            name: 'virtual_tryon_${DateTime.now().millisecondsSinceEpoch}.png');
-
-        if (result['isSuccess']) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('บันทึกรูปภาพลงในแกลเลอรี่เรียบร้อยแล้ว'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        } else {
-          throw Exception(
-              'ไม่สามารถบันทึกรูปภาพได้: ${result['errorMessage'] ?? "ไม่ทราบสาเหตุ"}');
-        }
-      } else if (status.isPermanentlyDenied) {
-        // ถ้าผู้ใช้ปฏิเสธถาวร แนะนำให้ไปตั้งค่า
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'คุณได้ปฏิเสธสิทธิ์การเข้าถึงแกลเลอรี่ถาวร โปรดเปิดการตั้งค่าแอปเพื่ออนุญาต'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'ตั้งค่า',
-              onPressed: () {
-                openAppSettings();
-              },
-            ),
-          ),
-        );
-      } else {
-        throw Exception('ไม่ได้รับอนุญาตให้เข้าถึงแกลเลอรี่');
-      }
-    } catch (e) {
-      print('Error saving image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('เกิดข้อผิดพลาดในการบันทึกรูปภาพ: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
