@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-class VirtualTryOnResultPage extends StatelessWidget {
+class VirtualTryOnResultPage extends StatefulWidget {
   final File resultImage;
   final Map<String, dynamic> selectedGarment;
   final String category;
@@ -14,6 +16,85 @@ class VirtualTryOnResultPage extends StatelessWidget {
     required this.selectedGarment,
     required this.category,
   }) : super(key: key);
+
+  @override
+  State<VirtualTryOnResultPage> createState() => _VirtualTryOnResultPageState();
+}
+
+class _VirtualTryOnResultPageState extends State<VirtualTryOnResultPage> {
+  Future<void> _saveImage() async {
+    try {
+      // ขอสิทธิ์การเข้าถึงพื้นที่จัดเก็บ - การบันทึกรูปภาพลงในแกลเลอรี่
+      PermissionStatus status;
+
+      if (Platform.isAndroid) {
+        // สำหรับ Android
+        if (await Permission.storage.isGranted) {
+          status = PermissionStatus.granted;
+        } else {
+          status = await Permission.storage.request();
+        }
+      } else if (Platform.isIOS) {
+        // สำหรับ iOS
+        if (await Permission.photos.isGranted) {
+          status = PermissionStatus.granted;
+        } else {
+          status = await Permission.photos.request();
+        }
+      } else {
+        throw Exception('ไม่รองรับแพลตฟอร์มนี้');
+      }
+
+      if (status.isGranted) {
+        // อ่านไฟล์เป็น bytes
+        final bytes = await widget.resultImage.readAsBytes();
+
+        // บันทึกลงในแกลเลอรี่
+        final result = await ImageGallerySaver.saveImage(bytes,
+            quality: 100,
+            name: 'virtual_tryon_${DateTime.now().millisecondsSinceEpoch}.png');
+
+        if (result['isSuccess']) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('บันทึกรูปภาพลงในแกลเลอรี่เรียบร้อยแล้ว'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } else {
+          throw Exception(
+              'ไม่สามารถบันทึกรูปภาพได้: ${result['errorMessage'] ?? "ไม่ทราบสาเหตุ"}');
+        }
+      } else if (status.isPermanentlyDenied) {
+        // ถ้าผู้ใช้ปฏิเสธถาวร แนะนำให้ไปตั้งค่า
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'คุณได้ปฏิเสธสิทธิ์การเข้าถึงแกลเลอรี่ถาวร โปรดเปิดการตั้งค่าแอปเพื่ออนุญาต'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'ตั้งค่า',
+              onPressed: () {
+                openAppSettings();
+              },
+            ),
+          ),
+        );
+      } else {
+        throw Exception('ไม่ได้รับอนุญาตให้เข้าถึงแกลเลอรี่');
+      }
+    } catch (e) {
+      print('Error saving image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาดในการบันทึกรูปภาพ: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +126,7 @@ class VirtualTryOnResultPage extends StatelessWidget {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.network(
-                            selectedGarment['garment_image'] ?? '',
+                            widget.selectedGarment['garment_image'] ?? '',
                             width: 100,
                             height: 100,
                             fit: BoxFit.cover,
@@ -96,7 +177,7 @@ class VirtualTryOnResultPage extends StatelessWidget {
                               // ),
                               SizedBox(height: 4),
                               Text(
-                                'Type: $category',
+                                'Type: ${widget.category}',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Color(0xFF9B7EBD),
@@ -144,7 +225,7 @@ class VirtualTryOnResultPage extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Image.file(
-                        resultImage,
+                        widget.resultImage,
                         fit: BoxFit.contain,
                       ),
                     ),
@@ -154,69 +235,24 @@ class VirtualTryOnResultPage extends StatelessWidget {
                 SizedBox(height: 24),
 
                 // ปุ่มบันทึกรูปภาพ
-                Center(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      try {
-                        // อ่านไฟล์เป็น bytes
-                        final Uint8List imageBytes =
-                            await resultImage.readAsBytes();
-
-                        // สร้างชื่อไฟล์ด้วยเวลาปัจจุบัน
-                        final String fileName =
-                            'virtual_tryon_${DateTime.now().millisecondsSinceEpoch}.png';
-
-                        // ดึง directory สำหรับบันทึกรูปภาพ
-                        final Directory pictureDir =
-                            await getApplicationDocumentsDirectory();
-                        final String filePath = '${pictureDir.path}/$fileName';
-
-                        // บันทึกไฟล์
-                        final File savedFile = File(filePath);
-                        await savedFile.writeAsBytes(imageBytes);
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('บันทึกรูปภาพสำเร็จที่: $filePath'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-
-                        // แสดงข้อความแนะนำเพิ่มเติม
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                                'หมายเหตุ: รูปภาพถูกบันทึกในพื้นที่แอปพลิเคชัน ไม่ได้บันทึกในแกลเลอรี่'),
-                            backgroundColor: Colors.blue,
-                            duration: Duration(seconds: 5),
-                          ),
-                        );
-                      } catch (e) {
-                        print('Error saving image: $e');
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content:
-                                Text('เกิดข้อผิดพลาดในการบันทึกรูปภาพ: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF3B1E54),
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    icon: Icon(Icons.save_alt),
-                    label: Text(
-                      'Save image',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ),
+                // Center(
+                //   child: ElevatedButton.icon(
+                //     onPressed: _saveImage,
+                //     style: ElevatedButton.styleFrom(
+                //       backgroundColor: Color(0xFF3B1E54),
+                //       padding:
+                //           EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                //       shape: RoundedRectangleBorder(
+                //         borderRadius: BorderRadius.circular(8),
+                //       ),
+                //     ),
+                //     icon: Icon(Icons.save_alt),
+                //     label: Text(
+                //       'Save image',
+                //       style: TextStyle(fontSize: 16),
+                //     ),
+                //   ),
+                // ),
               ],
             ),
           ),

@@ -38,11 +38,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>We need access to your camera</string>
+	<string>แอปต้องการเข้าถึงกล้องเพื่อถ่ายภาพสำหรับ Virtual Try-On</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need access to your photo library</string>
+	<string>แอปต้องการเข้าถึงแกลเลอรี่เพื่อบันทึกและเลือกรูปภาพสำหรับ Virtual Try-On</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>We need access to Save your photo library</string>
+	<string>แอปต้องการบันทึกรูปภาพ Virtual Try-On ลงในแกลเลอรี่ของคุณ</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

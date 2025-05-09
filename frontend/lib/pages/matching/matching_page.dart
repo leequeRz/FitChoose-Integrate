@@ -519,81 +519,79 @@ class _MatchingPageState extends State<MatchingPage> {
                     // ปรับขนาดและระยะห่างของปุ่ม
                     Row(
                       children: [
-                        // Reset button
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              selectedUpperGarment = null;
-                              selectedLowerGarment = null;
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Selection reset successfully'),
-                                duration: Duration(seconds: 1),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(6), // ลดจาก 8
-                            margin: const EdgeInsets.only(right: 8), // ลดจาก 12
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF9B7EBD).withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.refresh_rounded,
-                              color: Color(0xFF9B7EBD),
-                              size: 24, // ลดจาก 28
-                            ),
-                          ),
-                        ),
                         // History button
                         GestureDetector(
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => HistoryMatchingPage(),
+                                builder: (context) =>
+                                    const HistoryMatchingPage(),
                               ),
-                            ).then((_) {
-                              _resetSelection();
-                            });
+                            );
                           },
                           child: Container(
-                            padding: const EdgeInsets.all(6), // ลดจาก 8
-                            margin: const EdgeInsets.only(right: 8), // ลดจาก 12
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                            margin: const EdgeInsets.only(right: 8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF9B7EBD).withOpacity(0.2),
-                              shape: BoxShape.circle,
+                              color: const Color(0xFF9B7EBD),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(
-                              Icons.history_rounded,
-                              color: Color(0xFF9B7EBD),
-                              size: 24, // ลดจาก 28
+                            child: Row(
+                              children: const [
+                                Icon(
+                                  Icons.history,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'History',
+                                  style: TextStyle(
+                                    color: (Colors.white),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                        // Heart button
+                        // ปุ่มรายการโปรด
                         GestureDetector(
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) => FavoritesPage()),
-                            ).then((_) {
-                              _resetSelection();
-                            });
+                                builder: (context) => const FavoritesPage(),
+                              ),
+                            );
                           },
                           child: Container(
-                            padding: const EdgeInsets.all(6), // ลดจาก 8
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF9B7EBD).withOpacity(0.2),
-                              shape: BoxShape.circle,
+                              color: const Color(0xFF9B7EBD),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(
-                              Icons.favorite_rounded,
-                              color: Color(0xFF9B7EBD),
-                              size: 24, // ลดจาก 28
+                            child: Row(
+                              children: const [
+                                Icon(
+                                  Icons.favorite,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Liked',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),

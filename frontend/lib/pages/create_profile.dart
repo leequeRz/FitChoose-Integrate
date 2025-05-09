@@ -319,8 +319,8 @@ class _CreateProfileState extends State<CreateProfile> {
                           GestureDetector(
                             onTap: _showImageSourceDialog,
                             child: Container(
-                              width: 200,
-                              height: 200,
+                              width: 230,
+                              height: 300,
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(20),
@@ -350,8 +350,8 @@ class _CreateProfileState extends State<CreateProfile> {
                                       borderRadius: BorderRadius.circular(20),
                                       child: Image.file(
                                         _image!,
-                                        width: 200,
-                                        height: 200,
+                                        width: 230,
+                                        height: 300,
                                         fit: BoxFit.cover,
                                       ),
                                     ),

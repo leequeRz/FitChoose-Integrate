@@ -53,7 +53,7 @@ app.mount("/static", StaticFiles(directory="cassifier_image/gender"), name="stat
 
 # Virtual Try-On
 # External Try-On API Endpoint
-EXTERNAL_API_URL = "https://dvds-regarded-pda-ann.trycloudflare.com/tryon"
+EXTERNAL_API_URL = "https://selective-aw-had-mothers.trycloudflare.com/tryon"
 # Folder to store result
 RESULT_DIR = "/Users/klaaeng/Development/projects/FitChooseIntegrate/backend/virtual_tryon_results"
 os.makedirs(RESULT_DIR, exist_ok=True)

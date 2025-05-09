@@ -223,6 +223,9 @@ class _WardropePageState extends State<WardropePage> {
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF9B7EBD),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           child: Text(
                             'Picture Guide',

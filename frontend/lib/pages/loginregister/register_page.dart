@@ -153,7 +153,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 // username textfield
                 LoginRegisTextfield(
                   controller: emailController,
-                  hintText: 'Username',
+                  hintText: 'Email',
                   obscureText: false,
                 ),
                 SizedBox(height: 10),
